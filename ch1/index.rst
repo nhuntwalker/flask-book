@@ -11,7 +11,7 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
     - Download and install Flask
     - Say "Hello World!" with Flask
     - Serve an HTML page
-    - Write a test
+..    - Write a test 
 
 .. include:: ./introduction.rst
 .. include:: ./installation.rst
@@ -20,3 +20,4 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
 .. rubric:: Footnotes
 
 .. [#f1] `https://brew.sh/ <https://brew.sh/>`_
+.. [#f2] `Support for Type Hints <https://docs.python.org/3/library/typing.html>`_

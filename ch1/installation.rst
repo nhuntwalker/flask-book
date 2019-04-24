@@ -2,6 +2,14 @@
 Installing Python, Git, and NodeJS
 ==================================
 
+**Objectives**
+
+Ensure there are working installations of
+
+- Python 3.7+
+- Git 
+- NodeJS
+
 Make sure to have Python 3.7+, Git (I'm running version 2.17.2), and NodeJS (I'm running version 11.0.0, but 10.15.3+ should be fine) installed and running on your machine.
 We'll need other software down the line, but this is enough to get started.
 Whether you have them or not, this section will run through some instructions on how to obtain and install them.
@@ -108,7 +116,7 @@ To start a virtual environment with Python 3.7, we navigate to whatever director
 
 .. code-block:: shell
 
-    $ python3 -m venv ENV
+    $ python3.7 -m venv ENV
 
 I tend to call all of my virtual environments ``ENV``, as that stands out when I'm listing the contents of a directory.
 It's also ignored by default by `GitHub's Python .gitignore <https://github.com/github/gitignore/blob/master/Python.gitignore>`_, allowing us to not even have to think about it when we're starting a new repository.
