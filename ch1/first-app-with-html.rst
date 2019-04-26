@@ -89,6 +89,21 @@ Jinja can make it more natural to, say, list these people within individual ``<d
     ...     </div>
     ...     {% endfor %}
     ... </section>""")
+
+Here we're seeing the Jinja control structure for looping.
+To start a loop over an iterable within a Jinja template, open with ``{% for <item> in <iterable of items> %}``.
+The individual items within the iterable of items will be assigned whatever variable name you decided on in the loop declaration, and will be accessible with that variable name within the loop.
+If that item has properties, they'll be accessible with either dot notation (e.g. ``item.property``) or bracket notation (e.g. ``item["property"]``).
+To close the loop we use the ``{% endfor %}`` syntax.
+
+Note: when you're using Jinja, **you are not using Python**.
+It may seem a lot like Python and may in fact be a Python library, but the Jinja templating syntax just leverages what Python gives it.
+It doesn't run Python code within the template.
+
+If we populate and print the rendering of the template, we get the following valid HTML code.
+
+.. code-block:: python
+
     >>> print(tmpl.render(python_core_devs=python_core_devs))
         <section class="container">
             
