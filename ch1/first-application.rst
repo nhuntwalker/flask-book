@@ -50,6 +50,7 @@ Open ``app.py`` in your favorite editor/development environment and fill it with
 .. code-block:: python
 
     from flask import Flask
+    
     app = Flask(__name__)
 
     @app.route("/")
@@ -133,7 +134,7 @@ At the bottom of the file, we'll write
 .. code-block:: shell
 
     export FLASK_APP="$(pwd)/../app.py"
-    export FLASK_DEBUG=1
+    export FLASK_ENV=development
 
 Then, we'll restart our environment with ``source ENV/bin/activate`` to make those variables accessible.
 Finally, we start our Flask server with
@@ -144,12 +145,13 @@ Finally, we start our Flask server with
 
 The ``flask run`` shell command is shipped with Flask and installed in your environment when you install the library.
 It looks for a variable in your environment called ``FLASK_APP`` which is the path to an application object, and runs that application.
-If the variable ``FLASK_DEBUG`` is also set with a value of "1" then it'll show you errors in the browser when things go wrong.
+If the variable ``FLASK_ENV`` is also set with a value of "development" then it'll show you errors in the browser when things go wrong.
+It'll also provide your running server with auto-reload so that your server restarts when you make changes.
 Useful for development.
 
 .. note::
 
-    ``flask run`` and ``app.run()`` are virtually-identical operations. The major difference is that ``flask run`` enables an auto-reloader to update the running server when you make changes to your files, while ``app.run()`` doesn't.
+    ``flask run`` and ``app.run()`` are virtually-identical operations. The major difference is that ``flask run`` enables the auto-reloader properly while ``app.run()`` doesn't necessarily.
 
 Now that the server is running, navigate to ``http://127.0.0.1:5000/``, and voilá!
 There's "Hello, World!"

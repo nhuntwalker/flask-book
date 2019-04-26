@@ -16,6 +16,7 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
 .. include:: ./introduction.rst
 .. include:: ./installation.rst
 .. include:: ./first-application.rst
+.. include:: ./first-app-with-html.rst
 
 .. rubric:: Footnotes
 
