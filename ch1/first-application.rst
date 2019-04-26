@@ -94,7 +94,7 @@ Endpoint functions can be named pretty much anything, but we should take care to
 
 This endpoint function serves the home route, therefore I've called it ``home``.
 It takes no parameters, so its parentheses are empty.
-I've included a type hint[#f2]_ for the return value, showing that this function should be expected to return a string of some kind.
+I've included a type hint [#f2]_ for the return value, showing that this function should be expected to return a string of some kind.
 
 Next is a documentation string (hereon "doc string") that's far longer than the function it describes.
 This is good within reason; we want to clearly describe what the function intends to do, what parameters it takes (if any), and what it'll be returning (if anything).
@@ -108,3 +108,50 @@ Finally we have the return value.
 In this instance, the return value is the string ``"Hello, World!"``
 Flask requires that its endpoint functions return either a JSON serializable object, like a ``list``, or ``dict``; an object that can be rendered directly within the browser, like a ``string``; or a ``Response`` object that itself contains one of the previous two options.
 Because this is our first step, we'll only be rendering a string.
+
+Now that we've constructed our Hello World application, we can run the Flask server and view our response in the browser.
+There are two main ways to run our Flask server.
+One is to embed the command to run the server within our application file.
+At the bottom of ``app.py`` we might write the following:
+
+.. code-block:: python
+
+    if __name__ == "__main__":
+        app.run(host='127.0.0.1', port=5000)
+
+This way, if we were to run the application by executing ``python app.py`` in the command line, the Flask server would start and the application would be accessible in the browser at ``http://127.0.0.1:3000/``.
+
+This is a perfectly valid way to start your Flask server, but we're not going to do it this way.
+
+We're going to leave it as-is, and instead set a couple environment variables in ``ENV/bin/activate`` to:
+
+- store the path of our application file
+- set whether or not we want debugging available in the browser
+
+At the bottom of the file, we'll write
+
+.. code-block:: shell
+
+    export FLASK_APP="$(pwd)/../app.py"
+    export FLASK_DEBUG=1
+
+Then, we'll restart our environment with ``source ENV/bin/activate`` to make those variables accessible.
+Finally, we start our Flask server with
+
+.. code-block:: shell
+
+    (ENV) $ flask run
+
+The ``flask run`` shell command is shipped with Flask and installed in your environment when you install the library.
+It looks for a variable in your environment called ``FLASK_APP`` which is the path to an application object, and runs that application.
+If the variable ``FLASK_DEBUG`` is also set with a value of "1" then it'll show you errors in the browser when things go wrong.
+Useful for development.
+
+.. note::
+
+    ``flask run`` and ``app.run()`` are virtually-identical operations. The major difference is that ``flask run`` enables an auto-reloader to update the running server when you make changes to your files, while ``app.run()`` doesn't.
+
+Now that the server is running, navigate to ``http://127.0.0.1:5000/``, and voilá!
+There's "Hello, World!"
+
+Congratulations, you've now made your first Flask application.
