@@ -11,12 +11,13 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
     - Download and install Flask
     - Say "Hello World!" with Flask
     - Serve an HTML page
-..    - Write a test 
+    - Have Flask talk to a ReactJS front-end via HTTP requests and responses
 
 .. include:: ./introduction.rst
 .. include:: ./installation.rst
 .. include:: ./first-application.rst
 .. include:: ./first-app-with-html.rst
+.. include:: ./first-real-app.rst
 
 .. rubric:: Footnotes
 

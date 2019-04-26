@@ -305,7 +305,7 @@ Finally, we need to modify our Jinja template.
 Note, we're not actually modifying the Python code at all.
 The Flask server doesn't care about what the front-end does as long as the front-end isn't trying to make a call to the server.
 
-In the Jinja template we're going to add to the top, above the ``<body>`` tag but below the ``<html>`` tag the following:
+In the Jinja template we're going to add the following to the top, above the ``<body>`` tag but below the ``<html>`` tag:
 
 .. code-block:: html
 
@@ -327,3 +327,5 @@ We dynamically locate our static files using the ``url_for`` function call provi
 The URLs to the static files are loaded in as the template renders, and by the time they hit the front-end they appear as ``/static/style.css`` and ``/static/app.js``.
 
 And thus we have a webpage!
+Feel free to refresh the page a few times to witness the glory of divs fading in over and over again.
+I know I did.
