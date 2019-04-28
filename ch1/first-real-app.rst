@@ -146,7 +146,116 @@ So why did we do this?
 Why aren't we serving HTML, styling our response, and plugging in some JavaScript to make a pretty website?
 
 In modern web development, in most cases, Flask will not be used to generate the full application from back to front.
-As much as it can be used to put together a front-end with all the CSS and JS you might expect from a web application, the reality is that there are better options for managing front-ends than Jinja, and Flask is better when optimized for its role as an API (Application Programming Interface) server.
+As much as it can be used to put together a front-end with all the CSS and JS you might expect from a web application, the reality is that there are far better options for managing front-ends than Jinja, and Flask is better when optimized for its role as a server for an API (Application Programming Interface).
 We can use Flask to retrieve, shape, and modify the data that our front-end needs to consume.
 And if we need to scale it differently than our front-end, it'll be decoupled enough to allow that to happen.
 Separating our server concerns from our client concerns allows us to keep each side focused on what it does best, instead of having a massive codebase that tries to handle all things.
+
+Building the First View with ReactJS
+------------------------------------
+
+Of the many front-end libraries that can handle the job better than Flask+Jinja, one of the most popular as of this writing is ReactJS.
+We'll use it extensively throughout this book.
+
+The easiest way to get started with ReactJS is to use the ``create-react-app`` package via ``npx``.
+We can do that with ``npx create-react-app <app name>``.
+As mentioned above, we want to create a client that is wholly separate from our server aside from API calls.
+Let's create this client in a new directory called ``todo-list-client``, separate from our server code.
+Note: I'm going to be `creating this React app with TypeScript <https://facebook.github.io/create-react-app/docs/adding-typescript>`_, as adhering to strict typing helps when creating apps of any size.
+
+.. code-block:: shell
+
+    $ npx create-react-app todo-list-client --typescript
+
+Navigating into this directory shows the foundation for a fully-functioning ReactJS application.
+Note, as of this writing, I'm using React and React-DOM versions 16.8.6.
+My directory looks like:
+
+.. code-block:: shell
+
+    $ ls
+    .git          node_modules  src
+    .gitignore    package.json  tsconfig.json
+    README.md     public        yarn.lock
+
+Running ``npm start`` will run the development server, serving code for the default React app and opening it in our default browser at port 3000.
+``ctrl + C`` to kill the development server.
+
+If you've never developed with React before, it may be difficult to tell where to go from here.
+Fortunately, I have an idea.
+First, let's understand what we're working with.
+
+At the top-level we have:
+
+- our git repo and ``.gitignore``
+- ``README.md``
+- ``node_modules``: houses all of the packages we either have installed or will install, including package dependencies
+- ``package.json``: effectively the root of our app, listing the app name, version, author(s), dependencies, available scripts, and more. With this in our directory, we could wipe out our ``node_modules`` and rebuild them with an ``npm install``
+- ``public``: contains the base ``index.html`` file that our React app hooks into, as well as the ``manifest.json`` which provides information about your application for mobile devices if a mobile user wants to install a shortcut to your web app on their phone. Generally, we'll only touch this directory if we need to change something within the ``<head>`` tag of the ``index.html`` file.
+- ``src``: the meat of the application. Where all the JS and CSS is housed
+- ``tsconfig.json``: the indicator that this codebase is written in TypeScript. This file dictates what is required to compile this codebase to JavaScript.
+- ``yarn.lock``: a file storing the exact versions of packages that have been installed. If we were using ``yarn`` instead of ``npm`` to manage our packages, this file would update automatically as we installed more packages. However, we're using ``npm``, so a similar ``package-lock.json`` will be used.
+
+Within the ``src`` directory, we have 
+
+.. code-block:: shell
+
+    $ ls src
+    App.css            index.css          react-app-env.d.ts
+    App.test.tsx       index.tsx          serviceWorker.ts
+    App.tsx            logo.svg
+
+Because our project is being written with TypeScript, all the files that would be ``.js`` files are now ``.ts`` or ``.tsx``.
+Worry not, they all become JavaScript in the end.
+
+``index.tsx`` is the actual root of our application, dictating how our React app hooks into the ``public/index.html`` file.
+It'll import our whole app from ``App.tsx``, select the html element with the id of ``"root"``, and render our app within that element.
+It'll also apply whatever styling is present in ``index.css``.
+
+We won't be working with ``serviceWorker.ts``, so I'm going to pass over that for now.
+We also won't be touching ``react-app-env.d.ts``, though it's worth noting that this is where the object types in ``react-scripts`` are being referenced.
+
+``App.tsx`` is our application in its entirety, full-stop.
+Anything we want on our front-end will go through here.
+This file exports a React component called ``App``, which again gets imported into ``index.tsx``.
+All React components that we work with or create ourselves will be capitalized to differentiate them from purely functional code.
+
+Opening ``App.tsx`` reveals the following:
+
+.. code-block:: javascript
+
+    import React from 'react';
+    import logo from './logo.svg';
+    import './App.css';
+
+    const App: React.FC = () => {
+        return (
+            <div className="App">
+            <header className="App-header">
+                <img src={logo} className="App-logo" alt="logo" />
+                <p>
+                    Edit <code>src/App.tsx</code> and save to reload.
+                </p>
+                <a
+                    className="App-link"
+                    href="https://reactjs.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Learn React
+                </a>
+            </header>
+            </div>
+        );
+    }
+
+    export default App;
+
+At the top of the file we have ``import React from 'react';`` which...imports React from the ``react`` package.
+Any file that contains a component written with the JSX format we see in this file (where our DOM elements are written as raw HTML within a JavaScript file) will *need* to have this line at the top.
+
+Next we have the importing of the ``logo`` image, which we can ignore, and the importing of the CSS styling from ``App.css``.
+
+After all the imports we have the actual ``App`` component.
+Note that it appears as a function, in this case an ES6 arrow function.
+**Every React component effectively resolves to a function call that returns some code to be rendered as HTML.**

@@ -91,6 +91,11 @@ With Homebrew, you can install NodeJS just as you had installed Python and Git.
 
 This will install not just the latest versin of NodeJS, but also the Node Package Manager ``npm``.
 This becomes very useful when we start building our front-ends.
+We're specifically going to want an extension called ``npx`` for using the latest versions of ``create-react-app``, so let's install that globally.
+
+.. code-block:: shell
+
+    $ npm install -g npx
 
 Installing NodeJS on Debian/Ubuntu
 ----------------------------------
@@ -102,6 +107,12 @@ Much like with installing Git, installing NodeJS and ``npm`` involve a one-line 
     $ sudo apt install nodejs npm
 
 Note how NodeJS and npm are installed separately.
+Now that you have ``npm``, use it to install ``npx`` globally.
+You may need to use ``sudo`` here.
+
+.. code-block:: shell
+
+    $ sudo npm install -g npx
 
 Python Virtual Environments
 ---------------------------
