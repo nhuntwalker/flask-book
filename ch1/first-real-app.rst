@@ -135,12 +135,14 @@ The only route we've declared thus far, and therefore the only route that exists
 When we pop this open in the browser, we'll see some nice styling, the name of our endpoint function, whatever doc string we included on the function, the request that generated this response, and the data that the route would be passing back in JSON format (JavaScript Object Notation).
 
 It worked!
-Let's commit our code before we move forward.
+Let's commit and merge our code before we move forward.
 
 .. code-block:: shell
 
     (ENV) [first-route] $ git add app.py tasks.py
     (ENV) [first-route] $ git commit -m 'Completed the first route with some sample data. Will remove sample data once the database is created.'
+    (ENV) [first-route] $ git checkout master
+    (ENV) [master] $ git merge first-route
 
 So why did we do this?
 Why aren't we serving HTML, styling our response, and plugging in some JavaScript to make a pretty website?
@@ -168,6 +170,8 @@ Note: I'm going to be `creating this React app with TypeScript <https://facebook
     $ npx create-react-app todo-list-client --typescript
 
 Navigating into this directory shows the foundation for a fully-functioning ReactJS application.
+Install the packages for this app all at once with ``npm install``.
+
 Note, as of this writing, I'm using React and React-DOM versions 16.8.6.
 My directory looks like:
 
@@ -256,6 +260,313 @@ Any file that contains a component written with the JSX format we see in this fi
 
 Next we have the importing of the ``logo`` image, which we can ignore, and the importing of the CSS styling from ``App.css``.
 
-After all the imports we have the actual ``App`` component.
+After all the imports we have the actual ``App`` component, which we can see is of type ``React.FC`` (short for "FunctionComponent").
 Note that it appears as a function, in this case an ES6 arrow function.
-**Every React component effectively resolves to a function call that returns some code to be rendered as HTML.**
+This is one of the two ways we can write React components:
+
+- a function that returns code that renders to HTML when called
+- a class that inherits from ``React.Component`` and renders HTML when its ``render`` method is called.
+
+Let's clear out everything within the ``<div className="App">`` element so we can start to build our first view.
+Let's also change the type of App from ``React.FC`` to just ``FunctionComponent``, making sure to actually import ``FunctionComponent`` from ``'react'``.
+Also, let's also remove the ``logo`` import since we won't be using it.
+
+Our ``App.tsx`` file should now look like this:
+
+.. code-block:: javascript
+
+    import React, { FunctionComponent } from 'react';
+    import './App.css';
+
+    const App: FunctionComponent = () => {
+        return (<div className="App></div>);
+    }
+
+    export default App;
+
+Note: while we don't necessarily need the parentheses around that ``<div>`` element, they become useful when what you're returning grows to be a lot and you want to move things onto separate lines.
+React will try to insert a semicolon at the first opportunity when it sees ``return``.
+Having the parentheses secures that you get to return what you're expecting.
+
+Let's commit before continuing, as this is a nice starting point for our client application.
+
+.. code-block:: shell
+
+    $ git checkout -b list-tasks
+    [list-tasks] $ git add package.json src
+    [list-tasks] $ git commit -m 'Cleared out the App component and ready to fill with data.'
+
+Let's discuss what we're about to do before we do it.
+The first thing we're going to want this view to do is retrieve whatever task items are available from the server, and list those task items on the page.
+How they're listed isn't necessarily important, just as long as they're on the page.
+Let's use a list of divs.
+
+Because we're expecting an array of task items, let's define in our code what a task item should look like.
+We'll define it in a separate file called ``types.tsx``.
+Let's create the file in the ``src`` directory and fill it with our type definition for a ``Task``.
+
+.. code-block:: javascript
+
+    // in src/types.tsx
+    export interface Task {
+        _id: string;
+        body: string;
+        complete: boolean;
+        creationDate: string;
+    };
+
+With TypeScript, when we're defining what properties a given object should have we create an ``interface``.
+An interface defines the property types one by one, ending each property type definition with a semicolon.
+
+The properties on this object will mirror the "fake" data we'll be getting from our server.
+As such, the "``_id``", "``body``", and "``creationDate``" fields will always be strings, and the "``complete``" field will always be a boolean.
+
+For this project we're only going to have one type of object, but it's a good habit to get into to build our type definitions in a separate file and import them when and where we need them.
+
+This is a significant change, so let's commit!
+
+.. code-block:: shell
+
+    [list-tasks] $ git add src/types.tsx
+    [list-tasks] $ git commit -m 'Created the Task interface'
+
+Now that we have our type definition, let's go back to "``src/App.tsx``".
+We can import our ``Task`` type from ``types.tsx`` at the top.
+
+.. code-block:: javascript
+
+    import React, { FunctionComponent } from 'react';
+    import { Task } from './types';
+    import './App.css';
+
+    const App: FunctionComponent = () => {
+        return (<div className="App></div>);
+    }
+
+    export default App;
+
+To move forward from here we're going to have to introduce some state to this component.
+For this, we can use React's ``useState`` function.
+
+.. code-block:: javascript
+
+    import React, { FunctionComponent, useState } from 'react';
+
+``App`` will be getting these ``Task`` items from our server and using them to populate some divs.
+Initially though, it won't have any Tasks to work with.
+We can reflect that within our component with ``useState``.
+
+.. code-block:: javascript
+
+    // in src/App.tsx
+    const App: FunctionComponent = () => {
+        const [ tasks, setTasks ] = useState<Array<Task>>([]);
+        return (
+            <div className="App"></div>
+        );
+    }
+
+We won't be using ``class``-based React components, so we won't have access to the state and state-based functions that are inherent to those types of components.
+Instead we'll be using ``useState`` to affect the state of our components.
+Later, we'll also use ``useEffect`` to decide when to re-render our component.
+
+The ``useState`` function provided by React, also known as the `State Hook <https://reactjs.org/docs/hooks-state.html>`_, takes a value of any type that you wish to represent part or all of the initial state of your component.
+Given this initial state value, it'll return two things for your use:
+
+-  copy of that initial value
+- a function that can update the state of the component
+
+In the example above we wrote
+
+.. code-base:: javascript
+    
+    // at the top
+    import React, { FunctionComponent, useState } from 'react';
+
+    // within the function
+    const [ tasks, setTasks ] = useState<Array<Task>>([]);
+
+Effectively what we said was "We expect our state for this function to at any time consist of an Array of Task items.
+Initially, that array will be empty. 
+Pass us that empty array to start, as well as a function to update what that array should be at any point in time."
+
+Assuming that ``tasks`` will be an array filled with ``Task`` items, we can work on that ``return`` statement again.
+We want to return a list of divs, one for each task.
+We can do this within the ``<div className="App"></div>`` container div.
+
+.. code-base:: javascript
+
+    const App: FunctionComponent = () => {
+        const [ tasks, setTasks ] = useState<Array<Task>>([]);
+        return (
+            <div className="App">
+                { tasks.map((task: Task) => <div>{ task.body }</div>) }
+            </div>
+        );
+    }
+
+Here we're taking the body of every task and using it as content for the ``<div>`` that contains it.
+We're taking all those divs, however many there may be, and making them children of ``<div className="App">``.
+Considering the 5 tasks we currently have in our back-end, we would expect the resulting HTML to appear as:
+
+.. code-base:: html
+
+    <div className="App">
+        <div>Go grocery shopping</div>
+        <div>Go to BodyPump on Friday</div>
+        <div>Clean the bathroom</div>
+        <div>Change the Brita filter</div>
+        <div>Meet Marcus for lunch</div>
+    </div>
+
+Commit!
+
+.. code-block:: shell
+
+    [list-tasks] $ git add src/App.tsx
+    [list-tasks] $ git commit -m 'Updated the App component to be stateful with respect to the array of Tasks. Also added the list of divs, one for each task, to the returned and rendered DOM'
+
+With that set, we have to actually fetch the data we'll be needing from the back-end.
+We could use the built-in ``fetch`` API, but I prefer ``axios``.
+In my opinion, it's simpler to retrieve JSON data from an ``axios`` call.
+We can install ``axios`` like any other node package
+
+.. code-block:: shell
+
+    $ npm install axios
+
+and include it in our codebase to fetch data like so:
+
+.. code-block:: javascript
+
+    const App: FunctionComponent = () => {
+        const [ tasks, setTasks ] = useState<Array<Task>>([]);
+
+        async function fetchTasks() {
+            const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
+            const result = await axios.get(apiUrl);
+
+            setTasks(result.data);
+        };
+
+        return (
+            <div className="App">
+                { tasks.map((task: Task) => <div>{ task.body }</div>) }
+            </div>
+        );
+    }
+
+Axios can be used as a Promise, or can be used with ``await`` inside an ``async`` function.
+We're using it with ``await``, which means for us that when ``fetchTasks`` is called, this function will wait for a response from the server, then continue to act once the response is retrieved.
+
+Commit!
+
+.. code-block:: shell
+
+    [list-tasks] $ git add src/App.tsx
+    [list-tasks] $ git commit -m 'Added the fetchTasks function to the App component. Ready to fetch tasks on one function call.'
+
+Now we have this function added to our component.
+If called, it'll send a request to ``'http://localhost:5000/api/v1/tasks'`` and use the data it gets back to update the state of the array of Tasks.
+The way it's written, though, it'll do nothing and never get called.
+
+I'm going to add a temporary little button that'll just ensure that this call works the way it's supposed to work and that the DOM is populated accordingly.
+In the ``return`` statement I'll put this button within the App div.
+
+.. code-block:: javascript
+
+    <div className="App">
+        <button onClick={ () => fetchTasks() }>Click me!</button>
+        { tasks.map((task: Task) => <div>{ task.body }</div>) }
+    </div>
+
+Let's do the important thing and make sure this all works.
+Turn on the Flask server with ``flask run`` in the ``todo-list-server`` directory, and run the front-end with ``npm start`` in the ``todo-list-client`` directory.
+Visit the client in your browser and you should see only the button saying "Click me!".
+
+CLICK IT!
+
+If everything is wired together as it should be, clicking the button should fire a ``GET`` request to the server at ``localhost:5000/api/v1/tasks``, retrieve the only 5 tasks we're serving, set them as the array of tasks in our client, and populate the DOM with 5 divs containing the body of each task.
+
+Note: clicking the button again will not add *more* tasks to the task list.
+The button's only effect is to retrieve as many task items as the server has to give, and set them to be the array of tasks in the ``App`` component.
+
+Moving forward, we don't want to trigger the loading of task items in this way, so let's remove the button.
+We want the tasks to be loaded as soon as the page loads.
+For this, we can use React's ``useEffect`` hook.
+If you're familiar at all with the ``componentDidMount`` and ``componentDidUpdate`` class methods, this hook replaces them.
+Its job is to fire when any part of the component changes state.
+It takes two arguments:
+
+- The function that is to run when the component state updates
+- An array of stateful objects to be watched, firing the function in the first argument if any of them update
+
+We'll include it in our codebase like so:
+
+.. code-block:: javascript
+
+    useEffect(() => {
+        fetchTasks();
+    }, []);
+
+What this says is "when the component first loads, call ``fetchTasks``".
+After that, never call this function again since nothing is being watched for an updated state.
+
+The whole ``App.tsx`` file should now look like this in its entirety:
+
+.. code-block:: javascript
+
+    import React, { FunctionComponent, useState, useEffect } from 'react';
+    import { Task } from './types';
+    import axios from 'axios';
+    import './App.css';
+
+    const App: FunctionComponent = () => {
+        const [tasks, setTasks] = useState<Array<Task>>([]);
+
+        async function fetchTasks() {
+            const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
+            const result = await axios.get(apiUrl);
+
+            setTasks(result.data);
+        };
+
+        useEffect(() => {
+            fetchTasks();
+        }, []);
+
+        return (
+            <div className="App">
+                {tasks.map((task: Task) => <div>{task.body}</div>)}
+            </div>
+        );
+    }
+
+    export default App;
+
+As you should always do, run the client to make sure that all is working as it should.
+Then commit and merge to master.
+
+.. code-block:: shell
+
+    [list-tasks] $ git add src/App.tsx
+    [list-tasks] $ git commit -m 'First view done; tasks can be retrieved and listed on the front-end.'
+    [list-tasks] $ git checkout master
+    [list-tasks] $ git merge list-tasks
+
+Adding the Database
+-------------------
+
+We have a working front-end, and that's all well and good.
+But right now we're just serving fake data.
+Let's allow ourselves to have *real* data.
+Let's use our back-end to talk to MongoDB.
+
+Within ``todo-list-server`` we'll install ``flask-pymongo`` and add it to our ``requirements.txt``.
+
+.. code-block:: shell
+
+    (ENV) [master] $ git checkout -b add-database
+    (ENV) [add-database] $ pip install flask-pymongo==2.2.0
+    (ENV) [add-database] $ echo 'flask-pymongo==2.2.0' >> requirements.txt
+
