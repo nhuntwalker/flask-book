@@ -23,3 +23,4 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
 
 .. [#f1] `https://brew.sh/ <https://brew.sh/>`_
 .. [#f2] `Support for Type Hints <https://docs.python.org/3/library/typing.html>`_
+.. [#f3] `Python strftime reference. <http://strftime.org/>`

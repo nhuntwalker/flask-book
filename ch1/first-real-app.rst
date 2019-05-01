@@ -69,7 +69,8 @@ This file will become important later, when we deploy.
 
 With those installed, we can start to fill in ``app.py``.
 The first endpoint we want to write will serve a list of whatever task items we want to see on our client.
-This endpoint will take no parameters, and will do nothing special (for now) besides respond with a list of tasks.
+This endpoint will take no parameters, will only accept incoming "GET" requests, and will do nothing special (for now) besides respond with a list of tasks.
+
 Since we don't yet have a database filled with items, we're going to have to fake it a bit.
 Here's some fake data to start:
 
@@ -113,6 +114,11 @@ We'll also want to import ``Flask-CORS``, and use it to enable cross-origin reso
             A list of incomplete tasks.
         """
         return EXAMPLE_TASKS
+
+Here we've said that our route should match "<the host>/api/v1/tasks", and that the only HTTP methods that will be accepted for such a match will be "GET" requests.
+If we wanted, we could allow for this route to handle more than one type of HTTP request. 
+However, we're trying to build a REST-like API, where the incoming HTTP methods and the routes they access have meaning.
+The route dictates which resources should be accessed, and the method lets us know how to access them.
 
 Seeing is believing, so let's set our ``FLASK_APP`` and ``FLASK_ENV`` environment variables in ``ENV/bin/activate`` and fire up our Flask server.
 
@@ -671,6 +677,7 @@ That function can now look like this:
     @app.route("/api/v1/tasks", methods=["GET"])
     def get_tasks() -> list:
         """The home route.
+
         This view serves data that'll be consumed by the React client.
 
         Returns
@@ -703,6 +710,7 @@ At this point, our ``app.py`` should look like the following:
     @app.route("/api/v1/tasks", methods=["GET"])
     def get_tasks() -> list:
         """The home route.
+
         This view serves data that'll be consumed by the React client.
 
         Returns
@@ -734,6 +742,7 @@ Let's amend our function.
 
     def get_tasks() -> list:
         """The home route.
+
         This view serves data that'll be consumed by the React client.
 
         Returns
@@ -770,6 +779,7 @@ Let's amend the ``get_tasks`` function.
 
     def get_tasks() -> list:
         """The home route.
+
         This view serves data that'll be consumed by the React client.
 
         Returns
@@ -785,13 +795,227 @@ Let's amend the ``get_tasks`` function.
         return tasks
 
 Now our front-end can consume as many tasks as it would like from our server.
-Time to commit.
+Time to commit and merge.
 
 .. code-block:: shell
 
     (ENV) [add-database] $ git add app.py 
     (ENV) [add-database] $ git commit -m 'Connected the mongodb client and updated the get_tasks function to serve data from the database instead of directly from file.'
+    (ENV) [add-database] $ git checkout master
+    (ENV) [master] $ git merge add-database
 
-Submitting New Data from the Client
------------------------------------
+Store New Data Server-Side
+--------------------------
 
+Now that we have somewhere to actually persist data, let's add to our server an endpoint that will receive and store that data.
+Checkout a new branch on the Flask server and let's get to work.
+
+.. code-block:: shell
+
+    (ENV) [master] $ git checkout -b new-task
+
+The procedure here will be as follows: 
+
+- receive data from some client that will be the new task
+- set the creation date for the new task in the moment of reception
+- insert the new task into the ``tasks`` database
+- return the newly-inserted task to the client for confirmation
+
+Let's start by creating the endpoint within ``app.py`` that'll be used to collect and store the incoming data.
+
+.. code-block:: python
+
+    @app.route("/api/v1/tasks", methods=["POST"])
+    def new_task() -> dict:
+        """The Task Creation route.
+
+        This endpoint takes in new data that will be constructed into a new
+        item for the To Do list.
+
+        Returns
+        -------
+        dict
+            The data of the task, as it has been inserted into the database
+        """
+        return {}
+
+Here we're saying that whenever a request is sent to the ``/api/v1/tasks`` route via a ``POST`` request, this function will handle it.
+It doesn't matter that the URI for this route is the same as the first route we created; that one handles ``GET`` requests and this handles ``POST`` requests.
+Never shall the two be confused by the server.
+Also note how we don't have to do any work to manage cross-origin resource sharing.
+Flask CORS handles that for us, so we can focus instead on "business logic".
+
+Now we need to gather our data.
+When we're doing a simple thing like serving data we already have on the server to the client, we don't need to access any information about the incoming request.
+However, now that we're receiving data from the client we'll need to access the incoming request, as that request holds the data that we need to operate.
+
+Unlike many Python web frameworks, with Flask the incoming request is a global object that must be imported.
+It's populated per incoming request, but it exists outside of the functions that access it.
+We gain access to it like so.
+
+.. code-block:: python
+
+    from flask import request
+
+Yes, we could've done this before, but we didn't need it yet.
+
+When there's incoming data to be accessed and used within our codebase, it's available through the ``request`` object's ``data`` property.
+Within our endpoint function, it'll look like so:
+
+.. code-block:: python
+
+    @app.route("/api/v1/tasks", methods=["POST"])
+    def new_task() -> dict:
+        """The Task Creation route.
+
+        This endpoint takes in new data that will be constructed into a new
+        item for the To Do list.
+
+        Returns
+        -------
+        dict
+            The data of the task, as it has been inserted into the database
+        """
+        new_task = request.data
+        return {}
+
+When we insert the data into our database, we need it to contain the following fields: ``_id``, ``body``, ``complete``, and ``creationDate``.
+The client will only be sending the ``body`` and the ``complete`` status (which will always be False).
+MongoDB will populate the ``_id`` field for us.
+We have to come up with the ``creationDate`` ourselves.
+We need to work with dates and times, just a bit.
+
+Unless you are a unique individual that has *years* of experience working with dates and times in codebases, you should **NEVER** roll your own datetime software.
+More likely than not, you will not be able to account for all the various nuances that come with working with dates and times.
+Instead, leverage what the language gives you and always set your times as Coordinated Universal Time (UTC) to avoid timezone problems.
+If you need timezone support, gather the UTC offset from the client's browser and use that to correct for local time.
+
+Python's ``datetime`` library will allow us to do all the date and time work we'll need to get started.
+And, it already comes prepackaged within the standard library, so no need for another ``pip install``!
+Let's open the Python prompt and see how it can work for us.
+
+.. code-block:: python
+
+    >>> from datetime import datetime
+
+When a new task is being created, we want to set its creation date and time to that moment immediately before entry into the database.
+``datetime.utcnow()`` allows us to get that instant of time, automatically set to UTC.
+
+.. code-block:: python
+
+    >>> datetime.utcnow()
+    datetime.datetime(2019, 5, 1, 5, 11, 48, 920374)
+
+Calling ``datetime.utcnow()`` returns a ``datetime`` object, with all the information about the date and time when it was called.
+``datetime`` objects are not JSON serializable by default, so we should seek to store that date and time as a string for easy retrieval and easy transmission.
+The ``strftime`` method on datetime objects allows us to retrieve the string version of that object, set to whatever format we desire.
+I like to think of ``strftime`` as saying "string format time", or "format my time as a string".
+Check the Python strftime reference [#f3]_ for details on how you can format that time.
+
+I've found that a datetime format that's parseable with minimal intervention on both the Python and JavaScript sides of applications is ``'%d %B %Y %H:%M:%S UTC'``.
+Here's what these arcane symbols translate to:
+
+- ``%d``: two-digit day (e.g. 01)
+- ``%B``: full name of the month (e.g. October)
+- ``%Y``: four-digit year (e.g. 2019)
+- ``%H``: two-digit hour (e.g. 05)
+- ``%M``: two-digit minute (e.g. 20)
+- ``%S``: two-digit seconds (e.g. 25)
+
+Anything that's not preceded by ``%`` is interpreted literally, including whitespace.
+We can see that in our Python prompt.
+
+.. code-block:: python
+
+    >>> now = datetime.utcnow()
+    >>> time_fmt = '%d %B %Y %H:%M:%S UTC'
+    >>> now.strftime(time_fmt)
+    '01 May 2019 05:23:59 UTC'
+
+Let's incorporate this into ``app.py``.
+We want to set the creation date as soon as we receive the data, and add that creation date to the data.
+
+.. code-block:: python
+
+    # underneath all the package imports
+    TIME_FMT = '%d %B %Y %H:%M:%S UTC'
+
+    # back to the endpoint
+    @app.route("/api/v1/tasks", methods=["POST"])
+    def new_task() -> dict:
+        """The Task Creation route.
+
+        This endpoint takes in new data that will be constructed into a new
+        item for the To Do list.
+
+        Returns
+        -------
+        dict
+            The data of the task, as it has been inserted into the database
+        """
+        new_task = request.data
+        now = datetime.utcnow(TIME_FMT)
+        new_task["creationDate"] = now.strftime(TIME_FMT)
+        return {}
+
+At this point, our data has the task body, completion status, and creation date.
+What we need next is to insert it into MongoDB.
+This is pretty straightforward, as there's an ``insert_one`` method on the MongoDB collection!
+
+.. code-block:: python
+
+    @app.route("/api/v1/tasks", methods=["POST"])
+    def new_task() -> dict:
+        """The Task Creation route.
+
+        This endpoint takes in new data that will be constructed into a new
+        item for the To Do list.
+
+        Returns
+        -------
+        dict
+            The data of the task, as it has been inserted into the database
+        """
+        new_task = request.data
+        now = datetime.utcnow(TIME_FMT)
+        new_task["creationDate"] = now.strftime(TIME_FMT)
+
+        mongo.db.tasks.insert_one(new_task)
+        return {}
+
+An interesting thing happens when ``insert_one`` is called.
+The dict that it was called on, if it has been assigned to a variable, picks up the ID granted by the database as a key-value pair.
+The key, as we've seen previously, will be ``"_id"``, and the value will be a BSON ObjectId type object.
+We want to return our newly-inserted object to the client, but we can't do so as long as that field's value is a BSON ObjectId instead of a string.
+
+.. code-block:: python
+
+    @app.route("/api/v1/tasks", methods=["POST"])
+    def new_task() -> dict:
+        """The Task Creation route.
+
+        This endpoint takes in new data that will be constructed into a new
+        item for the To Do list.
+
+        Returns
+        -------
+        dict
+            The data of the task, as it has been inserted into the database
+        """
+        new_task = request.data
+        now = datetime.utcnow(TIME_FMT)
+        new_task["creationDate"] = now.strftime(TIME_FMT)
+
+        mongo.db.tasks.insert_one(new_task)
+        new_task["_id"] = str(new_task["_id"])
+        return new_task
+
+Now our task creation endpoint is ready to be accessed by our client!
+Let's commit and merge our code, then flip back to the client to update our view and submit data.
+
+.. code-block:: shell
+
+    (ENV) [new-task] $ git add app.py
+    (ENV) [new-task] $ git commit -m 'Added the new_task route. Now the server can insert into the database'
+    (ENV) [new-task] $ git checkout master
+    (ENV) [master] $ git merge new-task
