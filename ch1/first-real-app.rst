@@ -957,7 +957,7 @@ We want to set the creation date as soon as we receive the data, and add that cr
             The data of the task, as it has been inserted into the database
         """
         new_task = request.data
-        now = datetime.utcnow(TIME_FMT)
+        now = datetime.utcnow()
         new_task["creationDate"] = now.strftime(TIME_FMT)
         return {}
 
@@ -980,7 +980,7 @@ This is pretty straightforward, as there's an ``insert_one`` method on the Mongo
             The data of the task, as it has been inserted into the database
         """
         new_task = request.data
-        now = datetime.utcnow(TIME_FMT)
+        now = datetime.utcnow()
         new_task["creationDate"] = now.strftime(TIME_FMT)
 
         mongo.db.tasks.insert_one(new_task)
@@ -1006,7 +1006,7 @@ We want to return our newly-inserted object to the client, but we can't do so as
             The data of the task, as it has been inserted into the database
         """
         new_task = request.data
-        now = datetime.utcnow(TIME_FMT)
+        now = datetime.utcnow()
         new_task["creationDate"] = now.strftime(TIME_FMT)
 
         mongo.db.tasks.insert_one(new_task)
@@ -1050,7 +1050,6 @@ We're going to use placeholder text within the ``<textarea>`` instead of a label
             const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
             const result = await axios.get(apiUrl);
 
-            console.log(result.data);
             setTasks(result.data);
         };
 
@@ -1170,7 +1169,6 @@ With this change made, we can go back to ``App.tsx``, remove the list of tasks, 
             const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
             const result = await axios.get(apiUrl);
 
-            console.log(result.data);
             setTasks(result.data);
         };
 
@@ -1242,7 +1240,6 @@ Let's import it into ``App.tsx`` then get to work on adding its own internal com
             const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
             const result = await axios.get(apiUrl);
 
-            console.log(result.data);
             setTasks(result.data);
         };
 
@@ -1408,3 +1405,85 @@ Let's change that.
 We want this function to submit a POST request to our server's endpoint ``/api/v1/tasks``.
 We want this request to contain the body of our new task item, as well as set its completion status to ``false``.
 Finally, once the request has been submitted and received, we want to retrieve the full task item from the server, and add it to the list of tasks.
+
+One more detail that'll influence how we write the function.
+The hostname for the server being accessed by the ``GET`` request is the same as the one being accessed by the ``POST`` request, and will be the same for the upcoming ``PUT`` and ``DELETE`` requests.
+Instead of writing it out every time, why don't we write it once and use template literals?
+
+.. code-block:: javascript
+
+    import React, { FunctionComponent, useState, useEffect } from 'react';
+    import axios from 'axios';
+
+    import { TaskList } from './components/TaskList';
+    import { CreateTask } from './components/CreateTask';
+
+    import { Task } from './types';
+
+    import './App.css';
+
+    const API_HOST = 'http://localhost:5000'
+
+    const App: FunctionComponent = () => {
+        const [tasks, setTasks] = useState<Array<Task>>([]);
+
+        async function fetchTasks() {
+            const apiUrl: string = `${API_HOST}/api/v1/tasks`;
+            const result = await axios.get(apiUrl);
+
+            setTasks(result.data);
+        };
+
+        async function submitTask (body: string) {
+            const apiUrl: string = `${API_HOST}/api/v1/tasks`;
+            const newTask = {
+                body,
+                complete: false
+            }
+            const result = await axios.post(apiUrl, newTask);
+
+            setTasks(tasks.concat(result.data));
+        }
+
+        useEffect(() => {
+            fetchTasks();
+        }, []);
+
+        return (
+            <div className="App">
+                <CreateTask submitTask={ submitTask } />
+                <TaskList tasks={tasks} />
+            </div>
+        );
+    }
+
+    export default App;
+
+The constant ``API_HOST`` declared outside ``App`` gets incorporated into ``fetchTasks`` and ``submitTask`` as the base of the each function's ``ApiUrl``.
+
+``submitTask`` gets converted to an ``async`` function and filled out as
+
+.. code-block:: javascript
+
+    async function submitTask (body: string) {
+        const apiUrl: string = `${API_HOST}/api/v1/tasks`;
+        const newTask = {
+            body,
+            complete: false
+        };
+        const result = await axios.post(apiUrl, newTask);
+
+        setTasks(tasks.concat(result.data));
+    }
+
+The data to be transmitted becomes the second argument of ``axios.post``.
+The return value is gathered, and the data that was sent back within the server's response gets added to the task list and used to update the state of the task list.
+Note that ``tasks.concat`` will create a copy of the existing task list and add the new data to that copy, using that copy as the new state of the task list.
+
+And now we have our post request!
+We can add as many tasks as we like!
+Let's now work out how to remove tasks.
+
+Deleting an Item
+----------------
+
