@@ -148,7 +148,7 @@ Let's commit and merge our code before we move forward.
     (ENV) [first-route] $ git add app.py tasks.py
     (ENV) [first-route] $ git commit -m 'Completed the first route with some sample data. Will remove sample data once the database is created.'
     (ENV) [first-route] $ git checkout master
-    (ENV) [master] $ git merge first-route
+    (ENV) [master] $ git merge first-route -m 'Created the first server-side route for returning a list of task items'
 
 So why did we do this?
 Why aren't we serving HTML, styling our response, and plugging in some JavaScript to make a pretty website?
@@ -561,7 +561,7 @@ Then commit and merge to master.
     [list-tasks] $ git add src/App.tsx
     [list-tasks] $ git commit -m 'First view done; tasks can be retrieved and listed on the front-end.'
     [list-tasks] $ git checkout master
-    [list-tasks] $ git merge list-tasks
+    [list-tasks] $ git merge list-tasks -m 'Merging update to front end view listing tasks on the page'
 
 Adding the Database
 -------------------
@@ -805,7 +805,7 @@ Time to commit and merge.
     (ENV) [add-database] $ git add app.py 
     (ENV) [add-database] $ git commit -m 'Connected the mongodb client and updated the get_tasks function to serve data from the database instead of directly from file.'
     (ENV) [add-database] $ git checkout master
-    (ENV) [master] $ git merge add-database
+    (ENV) [master] $ git merge add-database -m 'Merging the addition of the Mongo database'
 
 Store New Data Server-Side
 --------------------------
@@ -828,6 +828,9 @@ Let's start by creating the endpoint within ``app.py`` that'll be used to collec
 
 .. code-block:: python
 
+    # at the top
+    from flask_api import FlaskAPI, status
+
     @app.route("/api/v1/tasks", methods=["POST"])
     def new_task() -> dict:
         """The Task Creation route.
@@ -840,13 +843,15 @@ Let's start by creating the endpoint within ``app.py`` that'll be used to collec
         dict
             The data of the task, as it has been inserted into the database
         """
-        return {}
+        return {}, status.HTTP_201_CREATED
 
 Here we're saying that whenever a request is sent to the ``/api/v1/tasks`` route via a ``POST`` request, this function will handle it.
 It doesn't matter that the URI for this route is the same as the first route we created; that one handles ``GET`` requests and this handles ``POST`` requests.
 Never shall the two be confused by the server.
 Also note how we don't have to do any work to manage cross-origin resource sharing.
 Flask CORS handles that for us, so we can focus instead on "business logic".
+Finally, we leverage FlaskAPI's ``status`` object to dictate the status code of the server's response.
+Yes, we could just go with a standard ``200 OK`` status code, but we can be a bit more explicit with what happened if we provide a ``201 Created``.
 
 Now we need to gather our data.
 When we're doing a simple thing like serving data we already have on the server to the client, we don't need to access any information about the incoming request.
@@ -880,7 +885,7 @@ Within our endpoint function, it'll look like so:
             The data of the task, as it has been inserted into the database
         """
         new_task = request.data
-        return {}
+        return {}, status.HTTP_201_CREATED
 
 When we insert the data into our database, we need it to contain the following fields: ``_id``, ``body``, ``complete``, and ``creationDate``.
 The client will only be sending the ``body`` and the ``complete`` status (which will always be False).
@@ -959,7 +964,7 @@ We want to set the creation date as soon as we receive the data, and add that cr
         new_task = request.data
         now = datetime.utcnow()
         new_task["creationDate"] = now.strftime(TIME_FMT)
-        return {}
+        return {}, status.HTTP_201_CREATED
 
 At this point, our data has the task body, completion status, and creation date.
 What we need next is to insert it into MongoDB.
@@ -984,7 +989,7 @@ This is pretty straightforward, as there's an ``insert_one`` method on the Mongo
         new_task["creationDate"] = now.strftime(TIME_FMT)
 
         mongo.db.tasks.insert_one(new_task)
-        return {}
+        return {}, status.HTTP_201_CREATED
 
 An interesting thing happens when ``insert_one`` is called.
 The dict that it was called on, if it has been assigned to a variable, picks up the ID granted by the database as a key-value pair.
@@ -1011,7 +1016,7 @@ We want to return our newly-inserted object to the client, but we can't do so as
 
         mongo.db.tasks.insert_one(new_task)
         new_task["_id"] = str(new_task["_id"])
-        return new_task
+        return new_task, status.HTTP_201_CREATED
 
 Now our task creation endpoint is ready to be accessed by our client!
 Let's commit and merge our code, then flip back to the client to update our view and submit data.
@@ -1021,7 +1026,7 @@ Let's commit and merge our code, then flip back to the client to update our view
     (ENV) [new-task] $ git add app.py
     (ENV) [new-task] $ git commit -m 'Added the new_task route. Now the server can insert into the database'
     (ENV) [new-task] $ git checkout master
-    (ENV) [master] $ git merge new-task
+    (ENV) [master] $ git merge new-task -m 'Merging the addition of the new task route'
 
 Data Submission, Controlling Components, and Rethinking Structure
 -----------------------------------------------------------------
@@ -1147,6 +1152,13 @@ We're specifying just an array of Tasks for now.
 We then create the ``TaskList`` component, seeking to export it and make it available by name on import.
 We set the parameter list to be of the type we declared above, and actually include the parameters we expect by name.
 Then, we just return the same list of tasks we had previously written out in ``App.tsx``.
+
+Having built this component, let's commit.
+
+.. code-block:: shell
+
+    [add-tasks] $ git add src/components/TaskList.tsx
+    [add-tasks] $ git commit -m 'Moved the list of tasks into its own component.'
 
 With this change made, we can go back to ``App.tsx``, remove the list of tasks, and replace it with the ``TaskList`` component.
 
@@ -1398,7 +1410,12 @@ We keep our same call to ``submitTask``, passing it the current state of ``taskB
 Immediately afterward, we set the ``taskBody`` value to an empty string, preparing the ``textarea`` for whatever the next input might be.
 
 We can leave this component alone for now.
-Let's go back to ``App.tsx`` and actually handle the submission of data.
+Let's commit then go back to ``App.tsx`` and actually handle the submission of data.
+
+.. code-block:: shell
+
+    [add-tasks] $ git add src/components/CreateTask.tsx
+    [add-tasks] $ git commit -m 'Built out the form that will create the body of the new task.'
 
 Currently, ``submitTask`` is effectively empty, only serving to log the data to the browser's console.
 Let's change that.
@@ -1482,8 +1499,110 @@ Note that ``tasks.concat`` will create a copy of the existing task list and add 
 
 And now we have our post request!
 We can add as many tasks as we like!
-Let's now work out how to remove tasks.
+Let's commit, merge to master, then work out how to remove tasks.
 
-Deleting an Item
-----------------
+.. code-block:: shell
 
+    [add-tasks] $ git add src/components/App.tsx
+    [add-tasks] $ git commit -m 'Filled out the submitTask function within App.tsx, and imported all the necessary components'
+    [add-tasks] $ git checkout master
+    [master] $ git merge add-tasks -m 'Merging the creation of the components subdirectory and the CreateTask form.'
+
+Deleting Items, Back to Front
+-----------------------------
+
+Let's create a new branch and start at the server.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b remove-task
+
+The endpoint that'll remove task items from the database really just needs to serve as a wrapper around the PyMongo method to delete items.
+Our Mongo client will do the trick with the ``mongo.db.<collection name>.delete_one()`` method.
+This method will take some criteria to match against all the documents within that collection, deleting one that matches.
+
+In our situation, we can guarantee the uniqueness of a task's ID, so we can provide that to ``delete_one()`` and it'll handle the rest.
+When we provide the ID, we need to make sure that what we're providing is a BSON  ``ObjectId``, not simply a string.
+The database stores the ID as BSON.
+
+Because we're trying to adhere to building a REST-like interface, the route that directs traffic to our endpoint will take only ``"DELETE"`` requests, with the task's id in the URL.
+
+.. code-block:: python
+
+    # in app.py
+    @app.route('/api/v1/tasks/<task_id>', methods=["DELETE"])
+
+Let's refactor this route, and actually all the routes, a little bit.
+Note that they all share the same base: ``"/api/v1"``.
+Just like we did with the front end, let's move that common base to one variable and use that variable in a variety of places with string formatting.
+
+.. code-block:: python
+
+    ... import stuff ...
+
+    ... app setup stuff ...
+
+    TIME_FMT = '%d %B %Y %H:%M:%S UTC'
+    API_PREFIX = "/api/v1"
+
+    @app.route(f"{API_PREFIX}/tasks", methods=["GET"])
+    def get_tasks() -> list:
+        ... the first endpoint ...
+
+    @app.route(f"{API_PREFIX}/tasks", methods=["POST"])
+    def new_task() -> dict:
+        ... the second endpoint ...
+
+    @app.route(f"{API_PREFIX}/tasks/<task_id>", methods=["DELETE"])
+
+Now let's continue with our endpoint function.
+Notice this route looks a little different from the other routes.
+With Flask, when we want a route to capture variables, we indicate that with the angle braces around the name of the variable.
+Then, when we declare the function that will respond to the route, we add that same exact variable name into the function's parameter list.
+By default, any variable in a route is interpreted as a string.
+If we had an integer it'd be ``"<int:task_id>"``, and a float would be ``"<float:task_id>"``.
+
+Since the purpose of this function is to delete one task by ID, let's call it ``delete_task``.
+When that task is deleted, the function will return the string representation of the object's ID to the client.
+
+.. code-block:: python
+
+    # at the top
+    from bson.objectid import ObjectId
+
+    # at the bottom
+    @app.route(f"{API_PREFIX}/tasks/<task_id>", methods=["DELETE"])
+    def delete_task(task_id: str) -> str:
+        """The Task Deletion route.
+
+        This endpoint takes in the id of the task to be deleted, finds it in the
+        database, and removes it. On a successful deletion, it returns the
+        id of the deleted task to the client.
+
+        Parameters
+        ----------
+        task_id : str
+            The ID of the task to be deleted, as a string.
+
+        Returns
+        -------
+        str
+            The ID of the deleted task, as a string.
+        """
+        mongo.db.tasks.delete_one({"_id": ObjectId(task_id)})
+        return task_id, status.HTTP_202_ACCEPTED
+
+Here we're telling the Mongo client to search for an item with an ID of whatever we provide, and delete it.
+Then we send the ``task_id`` back to the client as proof of deletion, as well as a status code of ``202 Accepted``.
+Often you'll find the status code for deletion is ``204 No Content``, however because we're sending content back to the client in the form of the task ID, it'd be disingenuous to use a 204 status code.
+We all have our hills to die on.
+
+That's it for deletion.
+Let's commit, merge, and make it work in the client.
+
+.. code-block:: shell
+
+    [remove-task] $ git add app.py
+    [remove-task] $ git commit -m 'Created the task deletion route'
+    [remove-task] $ git checkout master
+    [master] $ git merge remove-task -m 'Merging in the task deletion endpoint.'
