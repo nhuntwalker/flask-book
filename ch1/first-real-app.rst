@@ -224,6 +224,7 @@ It'll also apply whatever styling is present in ``index.css``.
 
 We won't be working with ``serviceWorker.ts``, so I'm going to pass over that for now.
 We also won't be touching ``react-app-env.d.ts``, though it's worth noting that this is where the object types in ``react-scripts`` are being referenced.
+Finally, we can remove ``App.test.tsx``, as we won't be writing tests for the duration of the book.
 
 ``App.tsx`` is our application in its entirety, full-stop.
 Anything we want on our front-end will go through here.
@@ -285,7 +286,7 @@ Our ``App.tsx`` file should now look like this:
     import './App.css';
 
     const App: FunctionComponent = () => {
-        return (<div className="App></div>);
+        return (<div className="App"></div>);
     }
 
     export default App;
@@ -346,7 +347,7 @@ We can import our ``Task`` type from ``types.tsx`` at the top.
     import './App.css';
 
     const App: FunctionComponent = () => {
-        return (<div className="App></div>);
+        return (<div className="App"></div>);
     }
 
     export default App;
@@ -398,7 +399,7 @@ Pass us that empty array to start, as well as a function to update what that arr
 
 Assuming that ``tasks`` will be an array filled with ``Task`` items, we can work on that ``return`` statement again.
 We want to return a list of divs, one for each task.
-We can do this within the ``<div className="App"></div>`` container div.
+We can do this within the ``<div className="App"></div>`` container div, using curly braces to run vanilla javascript within the context of a rendering component.
 
 .. code-block:: javascript
 
@@ -406,12 +407,14 @@ We can do this within the ``<div className="App"></div>`` container div.
         const [ tasks, setTasks ] = useState<Array<Task>>([]);
         return (
             <div className="App">
-                { tasks.map((task: Task) => <div>{ task.body }</div>) }
+                { tasks.map((task: Task) => <div key={ task._id }>{ task.body }</div>) }
             </div>
         );
     }
 
 Here we're taking the body of every task and using it as content for the ``<div>`` that contains it.
+We're also taking the ``_id`` of each task and using that unique identifier as the "key" of each ``<div>``.
+This allows React to keep track of each ``<div>``, which will come in handy when we start mutating the state of this list on the fly.
 We're taking all those divs, however many there may be, and making them children of ``<div className="App">``.
 Considering the 5 tasks we currently have in our back-end, we would expect the resulting HTML to appear as:
 
@@ -457,7 +460,7 @@ and include it in our codebase to fetch data like so:
 
         return (
             <div className="App">
-                { tasks.map((task: Task) => <div>{ task.body }</div>) }
+                { tasks.map((task: Task) => <div key={ task._id }>{ task.body }</div>) }
             </div>
         );
     }
@@ -483,7 +486,7 @@ In the ``return`` statement I'll put this button within the App div.
 
     <div className="App">
         <button onClick={ () => fetchTasks() }>Click me!</button>
-        { tasks.map((task: Task) => <div>{ task.body }</div>) }
+        { tasks.map((task: Task) => <div key={ task._id }>{ task.body }</div>) }
     </div>
 
 Let's do the important thing and make sure this all works.
@@ -543,7 +546,7 @@ The whole ``App.tsx`` file should now look like this in its entirety:
 
         return (
             <div className="App">
-                {tasks.map((task: Task) => <div>{task.body}</div>)}
+                {tasks.map((task: Task) => <div key={ task._id }>{ task.body }</div>)}
             </div>
         );
     }
@@ -1019,3 +1022,389 @@ Let's commit and merge our code, then flip back to the client to update our view
     (ENV) [new-task] $ git commit -m 'Added the new_task route. Now the server can insert into the database'
     (ENV) [new-task] $ git checkout master
     (ENV) [master] $ git merge new-task
+
+Data Submission, Controlling Components, and Rethinking Structure
+-----------------------------------------------------------------
+
+Now that we have our ``POST`` endpoint, we need to enable the client to actually collect and send user input to our server.
+We're going to need a form.
+Let's start a new branch in the client application for adding a submission form.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b add-tasks
+
+We can start by creating a classic ``<form>`` element containing a ``<textarea>`` and a submission button within the ``return`` statement of our existing ``src/App.tsx``.
+We're going to use placeholder text within the ``<textarea>`` instead of a label for the form, but we could have a label if we so chose.
+.. code-block:: javascript
+
+    import React, { FunctionComponent, useState, useEffect } from 'react';
+    import { Task } from './types';
+    import axios from 'axios';
+    import './App.css';
+
+    const App: FunctionComponent = () => {
+        const [tasks, setTasks] = useState<Array<Task>>([]);
+
+        async function fetchTasks() {
+            const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
+            const result = await axios.get(apiUrl);
+
+            console.log(result.data);
+            setTasks(result.data);
+        };
+
+        useEffect(() => {
+            fetchTasks();
+        }, []);
+
+        return (
+            <div className="App">
+                <form>
+                    <textarea placeholder="What do you want to do?" />
+                    <button type="submit">Add Task</button>
+                </form>
+                {tasks.map((task: Task) => <div key={ task._id }>{ task.body }</div>)}
+            </div>
+        );
+    }
+
+    export default App;
+
+The way that this is written, the form will do nothing.
+Nothing at all--we won't even be able to type in the ``<textarea>``.
+Understanding why helps this make sense.
+
+When React renders your components on the page, it renders them in whatever way was dictated by the props and states of those components.
+When we created the form, we effectively said that the text field will contain no text, and the submit button will do nothing of real value.
+
+Inserting text into a ``<textarea>`` or ``<input>`` field involves an event.
+Specifically an "onChange" event, where we could make something happen when the content of the element is being triggered to change.
+What we're used to--what we've always taken for granted--is that when we press a key, the text field should update with the value of that key.
+With React, however, you have to explicitly make that connection.
+
+We're going to want to do something like...
+
+.. code-block:: javascript
+
+    var taskBody = '';
+
+    <textarea
+        placeholder="What do you want to do?"
+        value={ taskBody }
+        onChange={ (event) => { taskBody = event.target.value; }}
+    />
+
+Here we say that the ``<textarea>`` element gets what it's about to display from the ``textContent`` variable.
+If we change ``textContent`` in a way that respects the current and future state of the component, then the value of that element should populate with the change.
+
+There's a problem here though.
+When ``textContent`` is created in the above example, it isn't stateful.
+That means that even though the value of ``textContent`` might be updated, the user doesn't see it because the component doesn't rerender.
+We need the form to maintain its own state so that we can update this value as we change it.
+
+It's time to break off into another component.
+More than that though, it's time for a bit of a reorganization of the codebase.
+
+In the ``src`` directory, currently we have just our ``App.tsx`` which contains the whole app, our ``index.tsx`` which imports the app, and the corresponding ``.css` files.
+We want to start to rethink ``App.tsx``, re-envisioning it as being the collection point for all the components of our application instead of housing all the raw code that comprises the application.
+To move ``App.tsx`` toward this new purpose, we're going to give ourselves a rule: **any HTML element that isn't a containing element gets imported as a whole component instead of being written out**.
+``App.tsx`` will then just hold these components and be focused on managing any of the global state.
+
+Make a new directory within ``src`` called ``components``. 
+This new directory will house all the components we build.
+Within that directory create two ``.tsx`` files:
+
+- ``TaskList.tsx``: will house the list of tasks
+- ``CreateTask.tsx``: will house the form for creating new tasks
+
+.. code-block:: shell
+
+    $ mkdir src/components
+    $ touch src/components/{TaskList,CreateTask}.tsx
+
+We're going to first move the list of tasks from ``App.tsx`` into ``components/TaskList.tsx``, then import the ``TaskList`` component.
+The ``TaskList`` component that gets exported will take the array of ``Task`` items as its props.
+
+.. code-block:: javascript
+
+    // in components/TaskList.tsx
+    import React from 'react';
+    import { Task } from '../types';
+
+    interface Props {
+        tasks: Task[];
+    }
+
+    export const TaskList = ({ tasks }: Props) => {
+        return <div>
+            {tasks.map(task => <div key={ task._id }>{ task.body }</div>)}
+        </div>;
+    }
+
+Here we defined the ``interface`` for the ``TaskList`` component, listing each prop that it'll take in along with the expected object type.
+We're specifying just an array of Tasks for now.
+
+We then create the ``TaskList`` component, seeking to export it and make it available by name on import.
+We set the parameter list to be of the type we declared above, and actually include the parameters we expect by name.
+Then, we just return the same list of tasks we had previously written out in ``App.tsx``.
+
+With this change made, we can go back to ``App.tsx``, remove the list of tasks, and replace it with the ``TaskList`` component.
+
+.. code-block:: javascript
+
+    // in App.tsx
+    import React, { FunctionComponent, useState, useEffect } from 'react';
+    import axios from 'axios';
+    
+    import { TaskList } from './components/TaskList';
+    
+    import { Task } from './types';
+
+    import './App.css';
+
+    const App: FunctionComponent = () => {
+        const [tasks, setTasks] = useState<Array<Task>>([]);
+
+        async function fetchTasks() {
+            const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
+            const result = await axios.get(apiUrl);
+
+            console.log(result.data);
+            setTasks(result.data);
+        };
+
+        useEffect(() => {
+            fetchTasks();
+        }, []);
+
+        return (
+            <div className="App">
+                <form>
+                    <textarea placeholder="What do you want to do?" />
+                    <button type="submit">Add Task</button>
+                </form>
+                <TaskList tasks={ tasks } />
+            </div>
+        );
+    }
+
+We replaced the list of tasks with the ``TaskList`` component, passing as props the ``tasks`` array.
+When it renders, it'll render exactly as it had before.
+
+Some other smaller changes were made in this file.
+Since we'll be importing a couple more things into this file, it helps to have a bit of structure in the import list.
+The way I like to section my imports is the following order, with each section separated by a single blank line for readability:
+
+1. External libraries
+2. Utilities
+3. Components
+4. Types
+5. Stylesheets
+
+This isn't law, it's just how I do it.
+There is no one "right" way.
+
+Let's do the same thing we did with the task list to the task creation form.
+It'll be even simpler to start: the form takes no props!
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    import React from 'react';
+
+    export const CreateTask = () => {
+        return <form>
+            <textarea placeholder="What do you want to do?" />
+            <button type="submit">Add Task</button>
+        </form>;
+    }
+
+Let's import it into ``App.tsx`` then get to work on adding its own internal component state.
+
+.. code-block:: javascript
+
+    // in App.tsx
+    import React, { FunctionComponent, useState, useEffect } from 'react';
+    import axios from 'axios';
+    
+    import { TaskList } from './components/TaskList';
+    import { CreateTask } from './components/CreateTask';
+    
+    import { Task } from './types';
+
+    import './App.css';
+
+    const App: FunctionComponent = () => {
+        const [tasks, setTasks] = useState<Array<Task>>([]);
+
+        async function fetchTasks() {
+            const apiUrl: string = 'http://localhost:5000/api/v1/tasks';
+            const result = await axios.get(apiUrl);
+
+            console.log(result.data);
+            setTasks(result.data);
+        };
+
+        useEffect(() => {
+            fetchTasks();
+        }, []);
+
+        return (
+            <div className="App">
+                <CreateTask />
+                <TaskList tasks={ tasks } />
+            </div>
+        );
+    }
+
+Alright let's focus in on this ``CreateTask`` component.
+
+.. code-block:: javascript
+
+    export const CreateTask = () => {
+        return <form>
+            <textarea placeholder="What do you want to do?" />
+            <button type="submit">Add Task</button>
+        </form>;
+    }
+
+The first thing we want to be able to do is have our ``<textarea>`` actually be able to take and display user input as that input arrives.
+The way we do this is with a stateful variable representing that input.
+For that we bring out ``useState`` again.
+
+.. code-block:: javascript
+
+    import React, { useState } from 'react';
+
+    export const CreateTask = () => {
+        const [ taskBody, setBody ] = useState('');
+
+        return <form>
+            <textarea placeholder="What do you want to do?" />
+            <button type="submit">Add Task</button>
+        </form>;
+    }
+
+We expect the ``taskBody`` to be a string and for the text area to have nothing in it besides the placeholder text to start, so we initialize it as an empty string.
+Whenever a user types within the ``textarea``, we want to update the state of this string, so we'll have the "change" event trigger a call to ``setBody``.
+
+.. code-block:: javascript
+
+    import React, { useState } from 'react';
+
+    export const CreateTask = () => {
+        const [ taskBody, setBody ] = useState('');
+
+        return <form>
+            <textarea
+                placeholder="What do you want to do?"
+                value={ taskBody }
+                onChange={ event => setBody(event.target.value) }
+            />
+            <button type="submit">Add Task</button>
+        </form>;
+    }
+
+Fire up the client app to make sure this works.
+Woohoo! Now our textarea actually updates.
+Let's actually enable ourselves to submit something.
+
+Conceptually, when the user has written out everything they want in the ``<textarea>``, we want to be able to gather that content and submit a POST request to the server.
+We then want to be able to update the overall task list.
+
+That last bit is key.
+Because we want this component to effectively update the state of the application outside of itself, it'll need some access to a function that manages that state.
+Because we've broken this form out into its own component, we'll need to pass that function into the component as props from its parent, ``<App />``
+
+Within the ``App`` component, we're going to create a function that'll handle the submission of that data to the server.
+We won't fill it out quite yet, but we will decide on what data it'll be taking in.
+
+.. code-block:: javascript
+
+    // in App.tsx
+    // within the App component
+    async function submitTask(body: string) {
+        console.log(body);
+    }
+
+    // within the return statement
+    <CreateTask submitTask={ submitTask } />
+
+Now that we know the ``submitTask`` function is coming in as props to ``CreateTask``, let's create an interface that'll expect this function, and update the component to use both the interface and the function.
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    import React, { useState } from 'react';
+
+    interface Props {
+        submitTask: (body: string) => void;
+    }
+
+    export const CreateTask = ({ submitTask }: Props) => {
+        const [taskBody, setBody] = useState('');
+
+        return <form onSubmit={ () => submitTask(taskBody) }>
+            <textarea
+                placeholder="What do you want to do?"
+                value={taskBody}
+                onChange={event => setBody(event.target.value)}
+            />
+            <button type="submit">Add Task</button>
+        </form>;
+    }
+
+Here, when the form is submitted, whatever the current value of ``taskBody`` happens to be will get passed to the ``submitTask`` function.
+However, there are two issues that we've now introduced.
+
+1. A form submission event triggers a page load every time. We don't want that to happen, we just want to submit the data without interrupting the user experience
+2. When the form is submitted (and the page isn't reloaded) the value of the ``textarea`` still contains the old content. Ideally, when the data has been sent for submission, the field would clear.
+
+If we want to address both of those issues, we're going to have to make the function called in the event of a submission a little more complex.
+In the interest of not cluttering the HTML elements, let's create a function within ``CreateTask`` to handle what we need.
+Then, we'll call that function when the form is submitted.
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    import React, { FormEvent, useState } from 'react';
+
+    interface Props {
+        submitTask: (body: string) => void;
+    }
+
+    export const CreateTask = ({ submitTask }: Props) => {
+        const [taskBody, setBody] = useState('');
+
+        const handleSubmission = (event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            submitTask(taskBody);
+            setBody('');
+        }
+
+        return <form onSubmit={ handleSubmission }>
+            <textarea
+                placeholder="What do you want to do?"
+                value={taskBody}
+                onChange={event => setBody(event.target.value)}
+            />
+            <button type="submit">Add Task</button>
+        </form>;
+    }
+
+The ``handleSubmission`` function encapsulates what we need quite nicely.
+First, note the type of object coming in on the parameters.
+We're expecting a form submission event, so it's type ``FormEvent<HTMLFormEvent>``, where ``FormEvent`` is imported from React and ``HTMLFormEvent`` is a built-in.
+Then we have ``event.preventDefault()`` to cut off the page load.
+We keep our same call to ``submitTask``, passing it the current state of ``taskBody``.
+Immediately afterward, we set the ``taskBody`` value to an empty string, preparing the ``textarea`` for whatever the next input might be.
+
+We can leave this component alone for now.
+Let's go back to ``App.tsx`` and actually handle the submission of data.
+
+Currently, ``submitTask`` is effectively empty, only serving to log the data to the browser's console.
+Let's change that.
+We want this function to submit a POST request to our server's endpoint ``/api/v1/tasks``.
+We want this request to contain the body of our new task item, as well as set its completion status to ``false``.
+Finally, once the request has been submitted and received, we want to retrieve the full task item from the server, and add it to the list of tasks.
