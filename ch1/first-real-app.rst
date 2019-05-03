@@ -1515,7 +1515,7 @@ Let's create a new branch and start at the server.
 
 .. code-block:: shell
 
-    [master] $ git checkout -b remove-task
+    (ENV) [master] $ git checkout -b remove-task
 
 The endpoint that'll remove task items from the database really just needs to serve as a wrapper around the PyMongo method to delete items.
 Our Mongo client will do the trick with the ``mongo.db.<collection name>.delete_one()`` method.
@@ -1602,7 +1602,89 @@ Let's commit, merge, and make it work in the client.
 
 .. code-block:: shell
 
-    [remove-task] $ git add app.py
-    [remove-task] $ git commit -m 'Created the task deletion route'
-    [remove-task] $ git checkout master
-    [master] $ git merge remove-task -m 'Merging in the task deletion endpoint.'
+    (ENV) [remove-task] $ git add app.py
+    (ENV) [remove-task] $ git commit -m 'Created the task deletion route'
+    (ENV) [remove-task] $ git checkout master
+    (ENV) [master] $ git merge remove-task -m 'Merging in the task deletion endpoint.'
+
+Adding a Delete Button
+----------------------
+
+Now that we have our delete route on the server, we need to enable the client to use it.
+Let's put a button on each Task item in the task list that'll trigger a deletion on the server and remove that item from the list.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b delete-button
+
+We're going to be adding some complexity to the individual task items.
+As such, we should do ourselves a favor and break the task items out into their own component.
+Then we can import that component and keep the return value of the ``TaskList`` simple.
+
+.. code-block:: shell
+
+    [delete-button] $ touch src/components/TaskItem.tsx
+
+Let's start the ``TaskItem`` component with the structure we already know.
+
+.. code-block:: javascript
+
+    // components/TaskItem.tsx
+    import React from 'react';
+
+    import { Task } from '../types';
+
+    interface Props {
+        task: Task;
+    }
+
+    export const TaskItem = ({ task }: Props) => {
+        return <div>
+            { task.body }
+        </div>;
+    }
+
+Now that we've encapsulated the Task div, we can work independently on the ``TaskItem`` component.
+The delete button will be the first of a few buttons that our ``TaskItem`` will need.
+As such, we can create a section that'll house all the buttons, and put the delete button there.
+
+.. code-block:: javascript
+
+    export const TaskItem = ({ task }: Props) => {
+        return <div>
+            <div className="task-buttons">
+                <button onClick={ () => {} }>Delete</button>
+            </div>
+            <div className="task-body">
+                { task.body }
+            </div>
+        </div>;
+    }
+
+So what should happen when we click the ``Delete`` button?
+As we discussed before, a request should be sent to the server that deletes the whole Task Item from the database.
+The user should also no longer see the task item in the browser, and the item should be removed from the array of Tasks.
+
+Since these changes will affect the global application state (i.e. the individual task items that populate the other components of the app), we'll need a function within ``App`` that'll handle the deletion and update the array of Tasks.
+
+Here's the function that'll go into the ``App`` component.
+
+.. code-block:: javascript
+
+    // in App.tsx
+    async function deleteItem(taskId: string) {
+        const url: string = `${API_HOST}/tasks/${taskId}`;
+        await axios.delete(url);
+        
+        setTasks(tasks.filter(task => task._id !== taskId));
+    }
+
+Here we do the same type of ``axios`` fetch we've done twice already.
+Then, we remove the task from the tasks array by returning an array that has filtered out any task with the same taskId.
+This is one of the reasons why it's crucial that we use unique values for our task IDs.
+If more than one task item shared the same value, that'd also be scrubbed from our tasks array.
+ 
+Now we have to get this ``deleteItem`` function all the way down into our ``TaskItem`` component to be used by the delete button.
+``TaskItem`` lives within the ``TaskList``, so we'll have to pass this function as a prop through ``TaskList``.
+
+.. code-block:: javascript
