@@ -1142,7 +1142,7 @@ The ``TaskList`` component that gets exported will take the array of ``Task`` it
 
     export const TaskList = ({ tasks }: Props) => {
         return <div>
-            {tasks.map(task => <div key={ task._id }>{ task.body }</div>)}
+            {tasks.map((task: Task) => <div key={ task._id }>{ task.body }</div>)}
         </div>;
     }
 
@@ -1439,20 +1439,20 @@ Instead of writing it out every time, why don't we write it once and use templat
 
     import './App.css';
 
-    const API_HOST = 'http://localhost:5000'
+    const API_HOST = 'http://localhost:5000/api/v1'
 
     const App: FunctionComponent = () => {
         const [tasks, setTasks] = useState<Array<Task>>([]);
 
         async function fetchTasks() {
-            const apiUrl: string = `${API_HOST}/api/v1/tasks`;
+            const apiUrl: string = `${API_HOST}/tasks`;
             const result = await axios.get(apiUrl);
 
             setTasks(result.data);
         };
 
         async function submitTask (body: string) {
-            const apiUrl: string = `${API_HOST}/api/v1/tasks`;
+            const apiUrl: string = `${API_HOST}/tasks`;
             const newTask = {
                 body,
                 complete: false
@@ -1483,7 +1483,7 @@ The constant ``API_HOST`` declared outside ``App`` gets incorporated into ``fetc
 .. code-block:: javascript
 
     async function submitTask (body: string) {
-        const apiUrl: string = `${API_HOST}/api/v1/tasks`;
+        const apiUrl: string = `${API_HOST}/tasks`;
         const newTask = {
             body,
             complete: false
@@ -1676,15 +1676,306 @@ Here's the function that'll go into the ``App`` component.
         const url: string = `${API_HOST}/tasks/${taskId}`;
         await axios.delete(url);
         
-        setTasks(tasks.filter(task => task._id !== taskId));
+        setTasks(tasks.filter((task: Task) => task._id !== taskId));
     }
 
 Here we do the same type of ``axios`` fetch we've done twice already.
-Then, we remove the task from the tasks array by returning an array that has filtered out any task with the same taskId.
+Then, we remove the task from the tasks array by returning an array that has filtered out any task with the same ``taskId``.
 This is one of the reasons why it's crucial that we use unique values for our task IDs.
 If more than one task item shared the same value, that'd also be scrubbed from our tasks array.
- 
+
 Now we have to get this ``deleteItem`` function all the way down into our ``TaskItem`` component to be used by the delete button.
-``TaskItem`` lives within the ``TaskList``, so we'll have to pass this function as a prop through ``TaskList``.
+``TaskItem`` lives within the ``TaskList``, so we'll have to pass this function as a prop through ``TaskList`` to get there.
 
 .. code-block:: javascript
+
+    // in the return statement of the App component
+    return (
+        <div className="App">
+            <CreateTask submitTask={ submitTask } />
+            <TaskList
+                tasks={tasks}
+                deleteItem={deleteItem}
+            />
+        </div>
+    );
+
+Let's commit these changes to ``App.tsx``, then keep following ``deleteItem`` as it trickles on down.
+
+.. code-block:: shell
+
+    [delete-button] $ git add src/App.tsx
+    [delete-button] $ git commit -m 'Added the deleteItem function that takes a taskId and removes it from the database as well as the front-end store of tasks'
+
+Now that ``TaskList`` is receiving ``deleteItem``, we have to update the props.
+We also need to continue passing ``deleteItem`` downward in the component hierarchy to reach the ``TaskItem`` component.
+
+.. code-block:: javascript
+
+    // in components/TaskList.tsx
+    interface Props {
+        tasks: Task[];
+        deleteItem: (taskId: string) => void;
+    }
+
+    export const TaskList = ({ tasks, deleteItem }: Props) => {
+        return <div>
+            {tasks.map((task: Task) => {
+                const itemProps = { key: task._id, task, deleteItem };
+                return <TaskItem { ...itemProps } />;
+            })}
+        </div>;
+    }
+
+Because the number of props we're passing through to the ``TaskItem`` is starting to get a bit long, I'm choosing to use a little shorthand here so that the return line of the component itself doesn't get too cluttered.
+I'm gathering all the props in a separate variable, then using the spread operator ``...`` to provide them separately as arguments to ``TaskItem``.
+
+One more level to go!
+Time to commit!
+
+.. code-block:: shell
+
+    [delete-item] $ git add src/components/TaskList.tsx
+    [delete-item] $ git commit -m 'Updated the props of TaskList and passed the deleteItem function through to TaskItem. Also collected the props of TaskItem into an object.'
+
+Onward, to the ``TaskItem``!
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    interface Props {
+        task: Task;
+        deleteItem: (taskId: string) => void;
+    }
+
+    export const TaskItem = ({ task, deleteItem }: Props) => {
+        return <div>
+            <div className="task-buttons">
+                <button onClick={ () => deleteItem(task._id) }>Delete</button>
+            </div>
+            <div className="task-body">
+                {task.body}
+            </div>
+        </div>;
+    }
+
+``deleteItem`` finds its way into the function through its parameters, and gets used right in the ``onClick`` event handler.
+Now our ``deleteItem`` function has reached its destination, receiving the ID of the task item as an argument.
+Let's fire up the client app and try it out.
+Then let's commit, merge, and move on to the server-side "update" functionality.
+
+.. code-block:: shell
+
+    [delete-item] $ git add src/components/TaskItem.tsx
+    [delete-item] $ git commit -m 'Added the deleteItem() functionality to the TaskItem.'
+    [delete-item] $ git checkout master
+    [master] $ git merge -m 'Task items can now be deleted from the client.'
+
+Updating Items in the Database
+------------------------------
+
+There's two circumstances within this app where we'd want to update the data held by an individual Task:
+
+- Completion of the task
+- Updating the contents of a task
+
+We could make two separate endpoints for each operation, but really we'd be duplicating work.
+Instead, we're going to build one endpoint to handle both operations.
+The key here?
+Have the client side send the whole updated Task Item instead of just a notice to update one field.
+Let's make it work.
+
+.. code-block:: shell
+
+    (ENV) [master] $ git checkout -b update-item
+
+Within ``app.py`` we'll declare a new route to be served.
+
+.. code-block:: python
+
+    @app.route(f"{API_PREFIX}/tasks/<task_id>", methods=["PUT"])
+
+Because we're keeping our app REST-like, the HTTP method we'll use to update an item is "PUT".
+The URL will point to a specific task by ID, since we need to target one thing to be changed.
+
+The function that'll attach to this route will use the ``task_id`` from the URL to find and update an item from the database.
+The data it'll use to update will come from the incoming request's data.
+Once the item is updated, we'll send the updated item back to the client.
+
+.. code-block:: python
+
+    # at the top
+    from pymongo import ReturnDocument
+
+    # at the bottom
+    @app.route(f"{API_PREFIX}/tasks/<task_id>", methods=["PUT"])
+    def update_task(task_id: str) -> dict:
+        """The Task Update route.
+        This endpoint takes in the id of the task to be updated in the URL, as
+        well as the new state of the task item in the request body. On a
+        successful update, it returns the new state of the updated task to the
+        client.
+
+        Parameters
+        ----------
+        task_id : str
+            The ID of the task to be updated, as a string.
+
+        Returns
+        -------
+        dict
+            The updated data of the task.
+        """
+        update_data = request.data
+        update_data.pop('_id')
+        updated_task = mongo.db.tasks.find_one_and_update(
+            {"_id": ObjectId(task_id)},
+            {"$set": update_data},
+            return_document=ReturnDocument.AFTER
+        )
+        updated_task["_id"] = str(updated_task["_id"])
+        return updated_task
+
+As we saw with the ``"POST"`` request, incoming data can be found within the ``request.data`` object.
+We pop the ``"_id"`` field out of the incoming data because we want to be able to just provide the whole object as data to be updated and MongoDB will give us an error if we try to update the ``"_id"`` field.
+We could just as easily not pass the ``"_id"`` field from the client, however my own personal feeling is that the client shouldn't be responsible for the shape of the data, only the content.
+
+Updating a MongoDB document is fairly straightforward with use of the ``find_one_and_update`` method.
+As the name implies, it finds one item matching your query, then updates it with the data that you pass it.
+The first argument passed to ``find_one_and_update`` is the query we use to select the one item to be updated.
+The second argument is the data to be set on that item.
+
+Note that you don't have to pass ``find_one_and_update`` every field the object possesses, whether it's being updated or not.
+I've chosen to do that here due to simplicity, but we could've just as simply picked out only the data to be changed and used that as the value for ``"$set"``.
+
+The third argument ``return_document`` is optional.
+By default, it's set to ``ReturnDocument.BEFORE``, where ``ReturnDocument`` is imported directly from ``PyMongo``.
+What this means is that when this function is called, by default it returns to you the original document before modification.
+That's not useful for us here, so we use ``ReturnDocument.AFTER`` to retrieve the document after it has been updated.
+
+Why do we do this?
+Why not just return the data that came in from the ``request`` instead?
+My feeling is that this endpoint should reflect the database's actual state and not its aspirational state.
+The incoming data on the ``request`` object is an aspiration.
+``ReturnDocument.AFTER`` provides us with the reality, so the client is never confused about what is actually going on server-side.
+
+Finally, we convert the ``"_id"`` of the task item to a string and return it just as we have before with the ``"POST"`` request.
+
+This is the last endpoint we'll need to add to our server!
+Here's what it should look like altogether:
+
+.. code-block:: python
+
+    from datetime import datetime
+    from bson.objectid import ObjectId
+
+    from flask import request
+    from flask_api import FlaskAPI, status
+    from flask_cors import CORS
+    from flask_pymongo import PyMongo
+    from pymongo import ReturnDocument
+
+    app = FlaskAPI(__name__)
+    app.config["MONGO_URI"] = 'mongodb://localhost:27017/tasksdb'
+    mongo = PyMongo(app)
+    CORS(app)
+
+    TIME_FMT = '%d %B %Y %H:%M:%S UTC'
+    API_PREFIX = "/api/v1"
+
+    @app.route(f"{API_PREFIX}/tasks", methods=["GET"])
+    def get_tasks() -> list:
+        """The home route.
+        This view serves data that'll be consumed by the React client.
+
+        Returns
+        -------
+        list
+            A list of incomplete tasks, ordered by creation date.
+        """
+        results = mongo.db.tasks.find({'complete': False})
+        tasks = []
+        for task in results:
+            task["_id"] = str(task["_id"])
+            tasks.append(task)
+        return tasks
+
+
+    @app.route(f"{API_PREFIX}/tasks", methods=["POST"])
+    def new_task() -> dict:
+        """The Task Creation route.
+
+        This endpoint takes in new data that will be constructed into a new
+        item for the To Do list.
+
+        Returns
+        -------
+        dict
+            The data of the task, as it has been inserted into the database
+        """
+        new_task = request.data
+        now = datetime.utcnow()
+        new_task["creationDate"] = now.strftime(TIME_FMT)
+
+        mongo.db.tasks.insert_one(new_task)
+        new_task["_id"] = str(new_task["_id"])
+        return new_task
+
+    @app.route(f"{API_PREFIX}/tasks/<task_id>", methods=["DELETE"])
+    def delete_task(task_id: str) -> str:
+        """The Task Deletion route.
+
+        This endpoint takes in the id of the task to be deleted, finds it in the
+        database, and removes it. On a successful deletion, it returns the
+        id of the deleted task to the client.
+
+        Parameters
+        ----------
+        task_id : str
+            The ID of the task to be deleted, as a string.
+
+        Returns
+        -------
+        str
+            The ID of the deleted task, as a string.
+        """
+        mongo.db.tasks.delete_one({"_id": ObjectId(task_id)})
+        return task_id
+
+    @app.route(f"{API_PREFIX}/tasks/<task_id>", methods=["PUT"])
+    def update_task(task_id: str) -> dict:
+        """The Task Update route.
+        This endpoint takes in the id of the task to be updated in the URL, as
+        well as the new state of the task item in the request body. On a
+        successful update, it returns the new state of the updated task to the
+        client.
+
+        Parameters
+        ----------
+        task_id : str
+            The ID of the task to be updated, as a string.
+
+        Returns
+        -------
+        dict
+            The updated data of the task.
+        """
+        update_data = request.data
+        update_data.pop('_id')
+        updated_task = mongo.db.tasks.find_one_and_update(
+            {"_id": ObjectId(task_id)},
+            {"$set": update_data},
+            return_document=ReturnDocument.AFTER
+        )
+        updated_task["_id"] = str(updated_task["_id"])
+        return updated_task
+
+The next time we touch this codebase, it'll be to set it up for deployment.
+For now though, let's just commit, merge, and concern ourselves with the state of the front-end.
+
+.. code-block:: shell
+
+    (ENV) [update-item] $ git add app.py
+    (ENV) [update-item] $ git commit -m 'We can now accept updates to Task Items.'
+    (ENV) [update-item] $ git checkout master
+    (ENV) [master] $ git merge update-item -m 'The PUT route was added for updating Task Items'
