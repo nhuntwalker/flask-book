@@ -1672,7 +1672,7 @@ Here's the function that'll go into the ``App`` component.
 .. code-block:: javascript
 
     // in App.tsx
-    async function deleteItem(taskId: string) {
+    async function deleteTask(taskId: string) {
         const url: string = `${API_HOST}/tasks/${taskId}`;
         await axios.delete(url);
         
@@ -1684,7 +1684,7 @@ Then, we remove the task from the tasks array by returning an array that has fil
 This is one of the reasons why it's crucial that we use unique values for our task IDs.
 If more than one task item shared the same value, that'd also be scrubbed from our tasks array.
 
-Now we have to get this ``deleteItem`` function all the way down into our ``TaskItem`` component to be used by the delete button.
+Now we have to get this ``deleteTask`` function all the way down into our ``TaskItem`` component to be used by the delete button.
 ``TaskItem`` lives within the ``TaskList``, so we'll have to pass this function as a prop through ``TaskList`` to get there.
 
 .. code-block:: javascript
@@ -1695,33 +1695,33 @@ Now we have to get this ``deleteItem`` function all the way down into our ``Task
             <CreateTask submitTask={ submitTask } />
             <TaskList
                 tasks={tasks}
-                deleteItem={deleteItem}
+                deleteTask={deleteTask}
             />
         </div>
     );
 
-Let's commit these changes to ``App.tsx``, then keep following ``deleteItem`` as it trickles on down.
+Let's commit these changes to ``App.tsx``, then keep following ``deleteTask`` as it trickles on down.
 
 .. code-block:: shell
 
     [delete-button] $ git add src/App.tsx
-    [delete-button] $ git commit -m 'Added the deleteItem function that takes a taskId and removes it from the database as well as the front-end store of tasks'
+    [delete-button] $ git commit -m 'Added the deleteTask function that takes a taskId and removes it from the database as well as the front-end store of tasks'
 
-Now that ``TaskList`` is receiving ``deleteItem``, we have to update the props.
-We also need to continue passing ``deleteItem`` downward in the component hierarchy to reach the ``TaskItem`` component.
+Now that ``TaskList`` is receiving ``deleteTask``, we have to update the props.
+We also need to continue passing ``deleteTask`` downward in the component hierarchy to reach the ``TaskItem`` component.
 
 .. code-block:: javascript
 
     // in components/TaskList.tsx
     interface Props {
         tasks: Task[];
-        deleteItem: (taskId: string) => void;
+        deleteTask: (taskId: string) => void;
     }
 
-    export const TaskList = ({ tasks, deleteItem }: Props) => {
+    export const TaskList = ({ tasks, deleteTask }: Props) => {
         return <div>
             {tasks.map((task: Task) => {
-                const itemProps = { key: task._id, task, deleteItem };
+                const itemProps = { key: task._id, task, deleteTask };
                 return <TaskItem { ...itemProps } />;
             })}
         </div>;
@@ -1736,7 +1736,7 @@ Time to commit!
 .. code-block:: shell
 
     [delete-item] $ git add src/components/TaskList.tsx
-    [delete-item] $ git commit -m 'Updated the props of TaskList and passed the deleteItem function through to TaskItem. Also collected the props of TaskItem into an object.'
+    [delete-item] $ git commit -m 'Updated the props of TaskList and passed the deleteTask function through to TaskItem. Also collected the props of TaskItem into an object.'
 
 Onward, to the ``TaskItem``!
 
@@ -1745,13 +1745,13 @@ Onward, to the ``TaskItem``!
     // in components/TaskItem.tsx
     interface Props {
         task: Task;
-        deleteItem: (taskId: string) => void;
+        deleteTask: (taskId: string) => void;
     }
 
-    export const TaskItem = ({ task, deleteItem }: Props) => {
+    export const TaskItem = ({ task, deleteTask }: Props) => {
         return <div>
             <div className="task-buttons">
-                <button onClick={ () => deleteItem(task._id) }>Delete</button>
+                <button onClick={ () => deleteTask(task._id) }>Delete</button>
             </div>
             <div className="task-body">
                 {task.body}
@@ -1759,15 +1759,15 @@ Onward, to the ``TaskItem``!
         </div>;
     }
 
-``deleteItem`` finds its way into the function through its parameters, and gets used right in the ``onClick`` event handler.
-Now our ``deleteItem`` function has reached its destination, receiving the ID of the task item as an argument.
+``deleteTask`` finds its way into the function through its parameters, and gets used right in the ``onClick`` event handler.
+Now our ``deleteTask`` function has reached its destination, receiving the ID of the task item as an argument.
 Let's fire up the client app and try it out.
 Then let's commit, merge, and move on to the server-side "update" functionality.
 
 .. code-block:: shell
 
     [delete-item] $ git add src/components/TaskItem.tsx
-    [delete-item] $ git commit -m 'Added the deleteItem() functionality to the TaskItem.'
+    [delete-item] $ git commit -m 'Added the deleteTask() functionality to the TaskItem.'
     [delete-item] $ git checkout master
     [master] $ git merge -m 'Task items can now be deleted from the client.'
 
@@ -1979,3 +1979,536 @@ For now though, let's just commit, merge, and concern ourselves with the state o
     (ENV) [update-item] $ git commit -m 'We can now accept updates to Task Items.'
     (ENV) [update-item] $ git checkout master
     (ENV) [master] $ git merge update-item -m 'The PUT route was added for updating Task Items'
+
+Completing Tasks on the Client Side
+-----------------------------------
+
+Completing a task in our ToDo list involves a change in state for that task; an update to the properties of that task.
+This will take advantage of our new ``"PUT"`` route.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b complete-task
+
+Let's start at the top of our app, in ``App.tsx``.
+The function we'll create will take a whole task item as a parameter and change its completion status to "true", then send an ``axios`` request to our server.
+When it receives the updated state of the task, it should remove the task from the array of tasks.
+
+.. code-block:: javascript
+
+    // within the App component
+    async function completeTask(task: Task) {
+        const url: string = `${API_HOST}/tasks/${task._id}`;
+        const updated = Object.assign({}, task, {complete: true});
+        await axios.put(url, updated);
+
+        setTasks(tasks.filter((task: Task) => task._id !== updated._id));
+    }
+
+We use ``Object.assign`` here because we want to avoid mutating the state of an existing object outside of using some sort of React-generated ``setState`` function.
+Instead, we create a new object that copies all the properties of the old object, as well as the new value we want the new object to have.
+Like ``axios.post``, ``axios.put`` takes the destination URL as the first argument and the data to be submitted as the second argument.
+Finally to remove the completed task from the array of tasks, we just filter out any tasks with a matching ``"_id"``, of which there should be only one.
+Let's commit this and move on.
+
+.. code-block:: shell
+
+    [complete-task] $ git add src/App.tsx
+    [complete-task] $ git commit -m 'Added functionality to submit a completed task to the server.'
+
+Now that the operation for completing a task has been created, let's roll this into the UI of the task list.
+Each individual task item should have the opportunity to be completed.
+It'd probably work best if there was some sort of button that could do this.
+Easy recognition, quick action.
+What this means is we'll need to pass the ``completeTask`` function down to the ``TaskItem`` level.
+As such, the ``return`` statement of ``App`` will look like this:
+
+.. code-block:: javascript
+
+    // the return statement of the App component
+
+    const taskListProps = {tasks, deleteTask, completeTask};
+    return (
+        <div className="App">
+            <CreateTask submitTask={submitTask} />
+            <TaskList {...taskListProps} />
+        </div>
+    );
+
+Using that shorthand for passing props again since the number of props going to ``TaskList`` is getting long.
+Let's commit and work on passing this function through the ``TaskList``.
+
+.. code-block:: shell
+
+    [complete-task] $ git add src/App.tsx
+    [complete-task] $ git commit -m 'Passing the completeTask function through to TaskList'
+
+The ``TaskList`` won't change much.
+It'll take our function as one of its props and just pass that through to each ``TaskItem``.
+
+.. code-block:: javascript
+
+    // components/TaskList.tsx
+    import React from 'react';
+    import { TaskItem } from './TaskItem';
+    import { Task } from '../types';
+
+    interface Props {
+        tasks: Task[];
+        deleteTask: (taskId: string) => void;
+        completeTask: (task: Task) => void;
+    }
+
+    export const TaskList = ({ tasks, deleteTask, completeTask }: Props) => {
+        return <div>
+            {tasks.map((task: Task) => {
+                const itemProps = { key: task._id, task, deleteTask, completeTask };
+                return <TaskItem { ...itemProps } />;
+            })}
+        </div>;
+    }
+
+Update the props interface, update the actual incoming props, and update the props being passed down to ``TaskItem``.
+That's the job here, so let's commit it.
+
+.. code-block:: shell
+
+    [complete-task] $ git add src/components/TaskList.tsx
+    [complete-task] $ git commit -m 'Passed the completeTask function through to TaskItem'
+
+On the ``TaskItem`` side, we'll need a new button that enacts the ``completeTask`` function.
+The function, having finally reached its destination, will take as an argument the ``Task`` that it's modifying.
+When the button is clicked, that function gets run.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    import React from 'react';
+
+    import { Task } from '../types';
+
+    interface Props {
+        task: Task;
+        deleteTask: (taskId: string) => void;
+        completeTask: (task: Task) => void;
+    }
+
+    export const TaskItem = ({ task, deleteTask, completeTask }: Props) => {
+        return <div>
+            <div className="task-buttons">
+                <button onClick={ () => completeTask(task) }>Complete</button>
+                <button onClick={ () => deleteTask(task._id) }>Delete</button>
+            </div>
+            <div className="task-body">
+                {task.body}
+            </div>
+        </div>;
+    }
+
+Once again, we update the props interface and update the parameter list of the function.
+Finally we add the aforementioned button, give it some descriptive text, and have it call ``completeTask`` when it's clicked.
+Let's commit, merge, and move onto the next piece of UI functionality: updating a task's body.
+
+.. code-block:: shell
+
+    [complete-task] $ git add src/components/TaskItem.tsx
+    [complete-task] $ git commit -m 'Updated the TaskItem component to enact the completeTask function.'
+    [complete-task] $ git checkout master
+    [master] $ git merge complete-task -m 'Added the UI functionality to complete a task.'
+
+Updating Tasks on the Client Side
+---------------------------------
+
+When we update a task, all that we're really doing in this moment is updating the body of that task.
+So any function that sends a request to the server to accomplish this should take in the expected new body, as well as the task itself.
+We'll then remove the old version of the task from the tasks array and add the new version, provided by the server.
+Let's get this done first, then we'll get to the UI.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b update-task
+
+This function will live, in the same place as the ``completeTask`` function did.
+
+.. code-block:: javascript
+
+    // within the App component
+    async function updateTask(task: Task, newBody: string) {
+        const url: string = `${API_HOST}/tasks/${task._id}`;
+        const updated = Object.assign({}, task, {body: newBody});
+        const response = await axios.put(url, updated);
+        const newTask = response.data;
+
+        setTasks(
+            tasks
+                .filter((task: Task) => task._id !== newTask._id)
+                .concat(newTask)
+                .sort((task1: Task, task2: Task) => {
+                    let date1 = new Date(task1.creationDate);
+                    let date2 = new Date(task2.creationDate);
+                    return date1 > date2 ? 1 : -1;
+                })
+        );
+    }
+
+As we noted above, the function takes the ``task`` to be modified, as well as the new body that the task will have.
+It creates a new object using the old task and the new body as a basis, then it sends a ``"PUT"`` request to the server with the updated version of the task.
+When the server responds with the new version of the task, the old task is filtered out of the tasks array and the new task is added to the array.
+Finally, we want to maintain the same order of tasks in the task list, so we leverage the ``creationDate`` of the task items to sort the array of tasks and put the updated task in its proper place.
+In this particular case, we're placing older tasks at the front of the task list.
+If we wanted to have newer tasks on top, we'd instead use ``return date1 > date2 ? -1 : 1``.
+
+The return statement of the ``App`` component won't change too much.
+Since all of the arguments being passed to ``TaskList`` have already been collected within ``taskListProps``, we can just add ``updateTask`` to that set of props.
+
+.. code-block:: javascript
+
+    // in the App component, right above the return statement.
+    const taskListProps = { tasks, deleteTask, completeTask, updateTask };
+
+Now that ``updateTask`` is built and passed down to ``TaskList``, we commit the change, then get to work on ``TaskList``.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/App.tsx
+    [udpate-task] $ git commit -m 'Added the updateTask function to the App component and passed it to TaskList'
+
+So we have the server call, and that's great.
+However, we have to decide on what the UI will involve.
+Let's say we have a button that allows us to edit the task body.
+How does that edit happen?
+Does the div containing the task item turn into something else that takes user input?
+Does the button click trigger a popup that darkens the rest of the window, waiting user input?
+Do we use a classic JavaScript ``prompt``?
+There's a number of ways to do this that influence how we build the UI, and none of them is canonically "the best".
+Let's choose the first way and stick to it.
+
+When we click the "edit" button, the div will turn into a ``textarea``, and the "edit" button will turn into a "save" button, which will save the changes made.
+Let's establish a couple other rules to build this idea out a bit.
+
+- When one task is being edited, no other tasks may be edited
+- When "save" is clicked, the task item returns to being a static task item instead of a ``textarea``
+
+One of the first things we can do is update the ``TaskList`` component to receive the ``updateTask`` function.
+Then, we modify ``TaskList`` so that it manages the state of which items are currently being edited.
+Once an item is identified as "being edited", we can use that identification to change the state of just that one item in the list and show that ``textarea``.
+
+.. code-block:: javascript
+
+    // in components/TaskList.tsx
+    import React, { useState } from 'react';
+    import { TaskItem } from './TaskItem';
+    import { Task } from '../types';
+
+    interface Props {
+        tasks: Task[];
+        deleteTask: (taskId: string) => void;
+        completeTask: (task: Task) => void;
+        updateTask: (task: Task, newBody: string) => void;
+    }
+
+    export const TaskList = ({ tasks, deleteTask, completeTask, updateTask }: Props) => {
+        const [isEditing, setEditedTask] = useState('');
+        const toBeEdited = (taskId: string) => {
+            setEditedTask(taskId);
+        };
+        return <div>
+            {tasks.map((task: Task) => {
+                const itemProps = { 
+                    key: task._id, task, deleteTask,
+                    completeTask, toBeEdited, isEditing,
+                    updateTask
+                };
+                return <TaskItem { ...itemProps } />;
+            })}
+        </div>;
+    }
+
+To start, we import ``useState`` from ``'react'`` at the top, since we'll need to make this ``TaskList`` stateful.
+We also add ``updateTask`` to the ``Props`` interface and parameter list, so that ``TaskList`` can receive and use that function.
+
+We set up ``TaskList`` to be stateful by calling ``useState`` with an empty string, returning the ID of the task being edited.
+By default no task is being edited, so it stays set as an empty string.
+When a task is selected to be edited, ``toBeEdited`` will be called and passed the taskId as an argument.
+That taskId will be set to ``isEditing``, and then we'll know which task is actively being edited.
+
+Each ``TaskItem`` will need to know if it's the one being edited, so we pass ``isEditing`` to each one.
+Each one will also need to be able to be selected to be edited, so they all get ``toBeEdited`` as well.
+Finally, when the update does happen, the new task body will need to be set, so each one will get ``updateTask``.
+
+Let's commit these changes to ``TaskList`` and move on to the ``TaskItem``.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/components/TaskList.tsx
+    [udpate-task] $ git commit -m 'Functionality for maintaining a reference to the edited task has been added to the TaskList. All the necessary properties have also been passed down to the Task items'
+
+Before we start making functional changes to ``TaskItem``, let's make sure that it can receive the new props being passed down.
+It'll now be getting:
+
+- ``isEditing``
+- ``toBeEdited``
+- ``updateTask``
+
+With that in mind, let's update its ``Props`` interface and its parameter list.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    interface Props {
+        isEditing: string;
+        task: Task;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+        toBeEdited: (taskId: string) => void;
+        updateTask: (task: Task, newBody: string) => void;
+    }
+
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        toBeEdited, updateTask 
+    }: Props) => {
+
+The ``TaskItem`` itself will become a bit more complex.
+We'll have a variety of buttons living in the ``task-buttons`` section of each ``TaskItem``, along with a UI change depending on whether or not this individual ``TaskItem`` is being edited.
+We'll also be adding complexity to the ``task-body`` section, having it change its appearance based on whether or not the ``TaskItem`` is being edited.
+
+Let's break these out into their own components to make it easier to work with them individually.
+
+.. code-block:: shell
+
+    [update-task] $ touch src/components/{TaskButtons,TaskBody}.tsx
+
+Within ``TaskButtons.tsx`` let's copy in the entire ``task-buttons`` div that current live in ``TaskItem.tsx``.
+We need to make sure that the ``TaskButtons`` component can accept the right props to enable the ``deleteTask`` and ``completeTask`` operations it can already perform.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    import React from 'react';
+
+    import { Task } from '../types';
+
+    interface Props {
+        task: Task;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+    }
+
+    export const TaskButtons = ({ task, completeTask, deleteTask }: Props) => {
+        return <div className="task-buttons">
+            <button onClick={ () => completeTask(task) }>Complete</button>
+            <button onClick={ () => deleteTask(task._id) }>Delete</button>
+        </div>;
+    }
+
+Let's import this component into ``TaskItem.tsx``, taking its place where the ``task-buttons`` div used to be.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    import React from 'react';
+
+    import { TaskButtons } from './TaskButtons';
+    import { Task } from '../types';
+
+    interface Props {
+        isEditing: string;
+        task: Task;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+        toBeEdited: (taskId: string) => void;
+        updateTask: (task: Task, newBody: string) => void;
+    }
+
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {  
+        const buttonProps = { task, completeTask, deleteTask };
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <div className="task-body">
+                {task.body}
+            </div>
+        </div>;
+    }
+
+Let's do the same with ``TaskBody.tsx``, noting that the only thing that the ``task-body`` div should care about at this moment is the body of the task.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+    import React from 'react';
+
+    interface Props {
+        body: string;
+    }
+
+    export const TaskBody = ({ body }: Props) => {
+        return <div className="task-body">{ body }</div>;
+    }
+
+And again, we want to import this component into ``TaskItem`` to replace what used to generate the body of the ``TaskItem`` component.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    import React from 'react';
+
+    import { TaskBody } from './TaskBody';
+    import { TaskButtons } from './TaskButtons';
+
+    import { Task } from '../types';
+
+    interface Props {
+        isEditing: string;
+        task: Task;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+        toBeEdited: (taskId: string) => void;
+        updateTask: (task: Task, newBody: string) => void;
+    }
+
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {  
+        const buttonProps = { task, completeTask, deleteTask };
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <TaskBody body={ task.body } />
+        </div>;
+    }
+
+There's been a lot of changes up to now, so let's commit these and continue working.
+
+.. code-block:: shell
+
+    [update-task] git add src/components/{TaskItem,TaskButtons,TaskBody}.tsx
+    [update-task] git commit -m 'Broke the buttons and the body of TaskItem into its own components, and imported those new components into TaskItem'
+
+We want to have a trigger to start off the editing process, so let's add a button to ``TaskButtons`` for editing.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    import React from 'react';
+
+    import { Task } from '../types';
+
+    interface Props {
+        task: Task;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+    }
+
+    export const TaskButtons = ({ task, completeTask, deleteTask }: Props) => {
+        return <div className="task-buttons">
+            <button>Edit</button>
+            <button onClick={() => completeTask(task)}>Complete</button>
+            <button onClick={() => deleteTask(task._id)}>Delete</button>
+        </div>;
+    }
+
+Simple enough to start.
+Now, what do we want to have happen when the button is clicked?
+We want to set *this* task item as the one to be edited.
+For that, we had the ``toBeEdited`` function, which takes a task ID as its argument.
+Let's add ``toBeEdited`` to the set of ``buttonProps`` constructed in ``TaskItem``.
+
+.. code-block:: javascript
+
+    // within components/TaskItem.tsx
+    const buttonProps = { task, completeTask, deleteTask, toBeEdited };
+
+And add it to the props that ``TaskButtons`` will be receiving.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    interface Props {
+        task: Task;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+        toBeEdited: (taskId: string) => void;
+    }
+
+    export const TaskButtons = ({ task, completeTask, deleteTask, toBeEdited }: Props) => {
+        return <div className="task-buttons">
+            <button>Edit</button>
+            <button onClick={() => completeTask(task)}>Complete</button>
+            <button onClick={() => deleteTask(task._id)}>Delete</button>
+        </div>;
+    }
+
+When the ``"Edit"`` button is clicked, we'll pass the task ID into ``toBeEdited``.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    export const TaskButtons = ({ task, completeTask, deleteTask, toBeEdited }: Props) => {
+        return <div className="task-buttons">
+            <button onClick={ () => toBeEdited(task._id) }>Edit</button>
+            <button onClick={ () => completeTask(task) }>Complete</button>
+            <button onClick={ () => deleteTask(task._id) }>Delete</button>
+        </div>;
+    }
+
+That ID will be sent back up to the ``TaskList`` and set on ``isEditing`` to identify which ``TaskItem`` is being edited.
+Come to think of it, we probably shouldn't see the ``"Edit"`` button if we're already editing task, right?
+Let's use ``isEditing`` to put a more sensible ``"Save"`` button in its place.
+
+First, let's pass ``isEditing`` on down through ``TaskItem`` into the ``TaskButtons`` component.
+
+.. code-block:: javascript
+
+    // within components/TaskItem.tsx
+    const buttonProps = { task, isEditing, completeTask, deleteTask, toBeEdited };
+
+Then, let's update the ``Props`` interface and parameter list of ``TaskButtons`` to receive ``isEditing``.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    interface Props {
+        task: Task;
+        isEditing: string;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+        toBeEdited: (taskId: string) => void;
+    }
+
+    export const TaskButtons = ({
+        task, isEditing,
+        completeTask, deleteTask, toBeEdited
+    }: Props) => {
+        return <div className="task-buttons">
+            <button onClick={ () => toBeEdited(task._id) }>Edit</button>
+            <button onClick={ () => completeTask(task) }>Complete</button>
+            <button onClick={ () => deleteTask(task._id) }>Delete</button>
+        </div>;
+    }
+
+Finally, we can use a ternary operator to express the following: if this task is the one being edited, then instead of showing the "Edit" button, show a currently-non-functional "Save" button.
+Otherwise, just show the "Edit" button as normal.
+
+.. code-block:: javascript
+
+    export const TaskButtons = ({
+        task, isEditing,
+        completeTask, deleteTask, toBeEdited
+    }: Props) => {
+        return <div className="task-buttons">
+            {
+                isEditing === task._id ?
+                <button onClick={ () => {} }>Save</button>:
+                <button onClick={ () => toBeEdited(task._id) }>Edit</button>
+            }
+            <button onClick={ () => completeTask(task) }>Complete</button>
+            <button onClick={ () => deleteTask(task._id) }>Delete</button>
+        </div>;
+    }
+
+When the pieces of my ternary operators get large, I like to spread them onto separate lines, using the ``?`` and ``:`` characters kind of like punctuation marks to set my line breaks.
+
