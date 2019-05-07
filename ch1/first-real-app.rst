@@ -2691,7 +2691,7 @@ As they type within the ``textarea``, ``Change`` events will fire.
 Note that while I could've just written ``updateText`` as a nameless arrow function within the ``onChange`` line, it was getting a little long so I made it its own function.
 I also swapped out only one instance of ``task.body`` with ``bodyText``.
 The ``task-body`` div should only ever show the currently stored value of the task body as it is represented on the server.
-The ``textarea`` is fine to show what the edit could become.
+The ``textarea`` is fine to show what the edit could become via ``bodyText``.
 
 These were big changes, so let's commit our progress thus far.
 What's left now is to connect the call to the server and transmit our updated data.
@@ -2700,3 +2700,123 @@ What's left now is to connect the call to the server and transmit our updated da
 
     [update-task] $ git add src/components/{TaskItem,TaskBody}.tsx
     [update-task] $ git commit -m 'TaskItem is now stateful, storing the updated text for the task body as it has been typed within TaskBody.'
+
+Thus far we've managed to create an edit button that signals which task is to be edited, create a text field that shows up when a task is being edited, and create a stateful object that maintains the state of the edited task.
+Now we want to be able to take that data and send it server-side.
+This is the type of operation that should only happen when the user chooses to save.
+
+We want to write a expression that says "now that the user has chosen to save, we want to take whatever text is in the ``textarea`` and send it to the server.
+After the server has received that change, we want to revert the ``textarea`` back to being a regular task body."
+We can do this within ``TaskItem``.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {
+        const [ bodyText, setBodyText ] = useState('');
+
+        const saveBody = () => {
+            updateTask(task, bodyText);
+            toBeEdited('');
+        }
+
+        const buttonProps = { task, isEditing, completeTask, deleteTask, toBeEdited };
+        const bodyProps = { task, isEditing, bodyText, setBodyText };
+
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <TaskBody {...bodyProps} />
+        </div>;
+    }
+
+When the ``saveBody`` function is called, the new task body will be sent to the server, and the ID to be edited is reset, reverting the ``textarea`` within ``TaskBody`` back to a regular div containing some text.
+We need this to be called when the ``"Save"`` button is clicked, so let's pass this function down through the props to ``TaskButtons``.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {
+        const [ bodyText, setBodyText ] = useState('');
+
+        const saveBody = () => {
+            updateTask(task, bodyText);
+            toBeEdited('');
+        }
+
+        const buttonProps = { 
+            task, isEditing, completeTask,
+            deleteTask, toBeEdited, saveBody
+        };
+        const bodyProps = { task, isEditing, bodyText, setBodyText };
+
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <TaskBody {...bodyProps} />
+        </div>;
+    }
+
+Let's commit this, then continue on down to ``TaskButtons``.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/components/TaskItem.tsx
+    [update-task] $ git commit -m 'Created the function that enables the saving of an updated task body'
+
+``TaskButtons`` is receiving a new prop, so its ``Props`` interface and parameter list need an update.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+    interface Props {
+        task: Task;
+        isEditing: string;
+        completeTask: (task: Task) => void;
+        deleteTask: (taskId: string) => void;
+        saveBody: () => void;
+        toBeEdited: (taskId: string) => void;
+    }
+
+    export const TaskButtons = ({
+        task, isEditing, completeTask,
+        deleteTask, saveBody, toBeEdited
+    }: Props) => {
+
+This function will get called whenever the ``"Save"`` button gets clicked, so let's add it to the ``onClick`` handler.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+
+    export const TaskButtons = ({
+        task, isEditing, completeTask,
+        deleteTask, saveBody, toBeEdited
+    }: Props) => {
+        return <div className="task-buttons">
+            {
+                isEditing === task._id ?
+                    <button onClick={() => saveBody()}>Save</button> :
+                    <button onClick={() => toBeEdited(task._id)}>Edit</button>
+            }
+            <button onClick={() => completeTask(task)}>Complete</button>
+            <button onClick={() => deleteTask(task._id)}>Delete</button>
+        </div>;
+    }
+
+And that's it!
+We can now update and save a task on the client.
+It was a long road to get here, but the functionality of the app is effectively complete!
+Make sure to fire up both the server and client, and try it out in the browser.
+Then commit, merge, and let's talk about adding CSS.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/components/TaskBody.tsx
+    [update-task] $ git commit -m 'Updated the TaskBody to include the saveBody functionality.'
+    [update-task] $ git checkout master
+    [master] $ git merge update-task -m 'Tasks can now be updated from the client side by clicking the "Save" button on an edited task.'
