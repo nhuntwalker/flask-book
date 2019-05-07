@@ -2495,6 +2495,7 @@ Otherwise, just show the "Edit" button as normal.
 
 .. code-block:: javascript
 
+    // in components/TaskButtons.tsx
     export const TaskButtons = ({
         task, isEditing,
         completeTask, deleteTask, toBeEdited
@@ -2510,5 +2511,192 @@ Otherwise, just show the "Edit" button as normal.
         </div>;
     }
 
-When the pieces of my ternary operators get large, I like to spread them onto separate lines, using the ``?`` and ``:`` characters kind of like punctuation marks to set my line breaks.
+When the pieces of my ternary operators get large I like to spread them onto separate lines, using the ``?`` and ``:`` characters kind of like punctuation marks to set my line breaks.
 
+Let's make one more small change, then move on to the ``TaskBody``.
+While that ``"Save"`` button doesn't need to update the database right away, we can at least use it to flip the editing status back to "no longer edited".
+Instead of that empty arrow function within ``TaskButtons``, let's have the ``"Save"`` button just reset ``isEdited`` to an empty string.
+
+.. code-block:: javascript 
+
+    // in components/TaskButtons.tsx
+    <button onClick={ () => toBeEdited('') }>Save</button> :
+
+And now when the button is clicked, the Task will no longer be edited.
+Let's commit these changes, then go on to the ``TaskBody``.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/components/{TaskItem,TaskButtons}.tsx
+    [update-task] $ git commit -m 'Allowed the TaskButtons component to know when its related task is being edited, and used a ternary operator to switch between an edit button and a nonfunctional save button'
+
+Aside from the button-flip, we need to use the ``isEditing`` value to control the ``TaskBody``, displaying a ``textarea`` when in editing mode and the normal ``TaskBody`` when not.
+Furthermore, when we're allowing the user to edit the task, it'd be great for them to be able to see what the body of the task *was* instead of being presented with a blank field.
+
+Let's pass ``isEditing`` and the whole task into ``TaskBody`` from ``TaskItem``.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {
+        const buttonProps = { task, isEditing, completeTask, deleteTask, toBeEdited };
+        const bodyProps = { task, isEditing };
+
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <TaskBody {...bodyProps} />
+        </div>;
+    }
+
+Following on down into the ``TaskBody``, we update its ``Props`` interface and parameter list to incorporate ``isEditing``, as well as switch out ``body: string`` for ``task: Task``.
+Then, in a similar way in which we used the ``isEditing`` value to control whether or not the ``"Edit"`` or ``"Save"`` button was showing, we'll use ``isEditing`` to determine whether we're showing the regular task body or a ``textarea`` containing the task body as editable text.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+    import React from 'react';
+    import { Task } from '../types';
+
+    interface Props {
+        task: Task;
+        isEditing: string;
+    }
+
+    export const TaskBody = ({ task, isEditing }: Props) => {
+        return isEditing === task._id ?
+            <textarea value={ task.body }/> :
+            <div className="task-body">{ task.body }</div>;
+    }
+
+Let's commit this code, then actually allow the user to do something with the text field.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/components/{TaskItem,TaskBody}.tsx
+    [update-task] $ git commit -m 'The TaskItem has passed isEditing to the TaskBody and the TaskBody now can show either a text area or a div containing the tasks body.'
+
+As we saw before with ``CreateTask``, in order for the user to actually be able to edit the task's body, it needs to be connected with an ``onChange`` event handler.
+So what do we do?
+What we want our code to express is that when the user changes the text in our ``textarea``, the value that will be stored on the task's body gets changed.
+
+But this is tricky!
+We only want the task's actual body to get changed when the user *chooses* to save the text.
+We also don't want to fire off a request to the server for *every* keystroke the user makes.
+What we'll need is an intermediary to maintain the state of what the task's body *might become* if the user decides to save the data.
+Then, should the user decide to save it, that data is what gets sent to the server.
+
+A good place to put such an intermediary is in the ``TaskItem`` component.
+The ``TaskList`` is too high up in the hierarchy.
+It shouldn't have to care about the contents of any individual task.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    // at the top
+    import React, { useState } from 'react';
+
+    // in the component
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {
+        const [ bodyText, setBodyText ] = useState(task.body);
+
+        const buttonProps = { task, isEditing, completeTask, deleteTask, toBeEdited };
+        const bodyProps = { task, isEditing };
+
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <TaskBody {...bodyProps} />
+        </div>;
+    }
+
+``bodyText`` will be the intermediary state between the real and aspirational task body.
+We'll pass this down into ``TaskBody`` and use the value to set what's in the ``textarea`` and the static task body.
+We'll also pass down ``setBodyText``, as this will be the function called whenever the textarea receives a ``ChangeEvent``.
+
+.. code-block:: javascript
+
+    // in the TaskItem component
+    export const TaskItem = ({
+        task, deleteTask, completeTask,
+        isEditing, toBeEdited, updateTask
+    }: Props) => {
+        const [ bodyText, setBodyText ] = useState(task.body);
+
+        const buttonProps = { task, isEditing, completeTask, deleteTask, toBeEdited };
+        const bodyProps = { task, isEditing, bodyText, setBodyText };
+
+        return <div>
+            <TaskButtons {...buttonProps} />
+            <TaskBody {...bodyProps} />
+        </div>;
+    }
+
+Of course, now that we've added to the props that ``TaskBody`` will receive, we need to update its interface and parameter list.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+    import React, { Dispatch, SetStateAction } from 'react';
+    import { Task } from '../types';
+
+    interface Props {
+        task: Task;
+        isEditing: string;
+        bodyText: string;
+        setBodyText: Dispatch<SetStateAction<string>>
+    }
+
+    export const TaskBody = ({ task, isEditing, bodyText, setBodyText }: Props) => {
+        return isEditing === task._id ?
+            <textarea value={ task.body } /> :
+            <div className="task-body">{ task.body }</div>;
+    }
+
+Note ``setBodyText``'s object type.
+Those functions we've been getting back from ``useState`` are Dispatch type functions, used internally in ``React``.
+Dispatch functions make something happen, and this particular type of Dispatch function fires off a ``SetStateAction``, whose job it is to set the state of a component.
+The thing that'll be used to set that state is, in this particular case, a string.
+If we had initialized ``useState`` with a number it'd be ``Dispatch<SetStateAction<number>>``.
+
+Let's have this ``textarea`` manage the ``onChange`` event like we had planned above.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+    // at the top
+    import React, { Dispatch, SetStateAction, ChangeEvent } from 'react';
+
+    // in the component
+    export const TaskBody = ({ task, isEditing, bodyText, setBodyText }: Props) => {
+        const updateText = (event: ChangeEvent<HTMLTextAreaElement>) => {
+            setBodyText(event.target.value);
+        }
+
+        return isEditing === task._id ?
+            <textarea
+                value={ bodyText }
+                onChange={ updateText }
+            /> :
+            <div className="task-body">{ task.body }</div>;
+    }
+
+Now, when the user first loads the ``TaskItem``, the current body will show.
+As they type within the ``textarea``, ``Change`` events will fire.
+``updateText`` will be listening for those ``Change`` events and respond by harvesting the current text within the ``textarea`` and updating the state of ``bodyText`` with it.
+Note that while I could've just written ``updateText`` as a nameless arrow function within the ``onChange`` line, it was getting a little long so I made it its own function.
+I also swapped out only one instance of ``task.body`` with ``bodyText``.
+The ``task-body`` div should only ever show the currently stored value of the task body as it is represented on the server.
+The ``textarea`` is fine to show what the edit could become.
+
+These were big changes, so let's commit our progress thus far.
+What's left now is to connect the call to the server and transmit our updated data.
+
+.. code-block:: shell
+
+    [update-task] $ git add src/components/{TaskItem,TaskBody}.tsx
+    [update-task] $ git commit -m 'TaskItem is now stateful, storing the updated text for the task body as it has been typed within TaskBody.'
