@@ -24,3 +24,12 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
 .. [#f1] `https://brew.sh/ <https://brew.sh/>`_
 .. [#f2] `Support for Type Hints <https://docs.python.org/3/library/typing.html>`_
 .. [#f3] `Python strftime reference. <http://strftime.org/>`_
+.. [#f4] `React Bootstrap <https://react-bootstrap.github.io/>`_
+.. [#f5] `Bootstrap <https://getbootstrap.com/>`_
+.. [#f6] `React Bootstrap Cards <https://react-bootstrap.github.io/components/cards/>`_
+.. [#f7] `React Bootstrap Grid Layout <https://react-bootstrap.github.io/layout/grid/>`_
+.. [#f8] `Font Awesome <https://fontawesome.com/?from=io>`_
+.. [#f9] `Heroku <https://www.heroku.com/>`_
+.. [#f10] `Heroku CLI installation <https://devcenter.heroku.com/articles/heroku-cli#download-and-install>`_
+.. [#f11] `Heroku addons <https://elements.heroku.com/addons>`_
+.. [#f12] `GUnicorn <https://gunicorn.org/>`_

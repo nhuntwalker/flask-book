@@ -275,6 +275,8 @@ This is one of the two ways we can write React components:
 - a class that inherits from ``React.Component`` and renders HTML when its ``render`` method is called.
 
 Let's clear out everything within the ``<div className="App">`` element so we can start to build our first view.
+Note that the ``className`` attribute here is the same as ``class`` in HTML.
+It's called ``className`` here to differentiate from the ``class`` keyword in JavaScript.
 Let's also change the type of App from ``React.FC`` to just ``FunctionComponent``, making sure to actually import ``FunctionComponent`` from ``'react'``.
 Also, let's also remove the ``logo`` import since we won't be using it.
 
@@ -1345,7 +1347,7 @@ Now that we know the ``submitTask`` function is coming in as props to ``CreateTa
 .. code-block:: javascript
 
     // in components/CreateTask.tsx
-    import React, { useState } from 'react';
+    import React, { useState, ChangeEvent } from 'react';
 
     interface Props {
         submitTask: (body: string) => void;
@@ -1358,7 +1360,7 @@ Now that we know the ``submitTask`` function is coming in as props to ``CreateTa
             <textarea
                 placeholder="What do you want to do?"
                 value={taskBody}
-                onChange={event => setBody(event.target.value)}
+                onChange={(event: ChangeEvent<HTMLFormElement>) => setBody(event.target.value)}
             />
             <button type="submit">Add Task</button>
         </form>;
@@ -1377,7 +1379,7 @@ Then, we'll call that function when the form is submitted.
 .. code-block:: javascript
 
     // in components/CreateTask.tsx
-    import React, { FormEvent, useState } from 'react';
+    import React, { FormEvent, ChangeEvent, useState } from 'react';
 
     interface Props {
         submitTask: (body: string) => void;
@@ -1396,7 +1398,7 @@ Then, we'll call that function when the form is submitted.
             <textarea
                 placeholder="What do you want to do?"
                 value={taskBody}
-                onChange={event => setBody(event.target.value)}
+                onChange={(event: ChangeEvent<HTMLFormElement>) => setBody(event.target.value)}
             />
             <button type="submit">Add Task</button>
         </form>;
@@ -2716,7 +2718,7 @@ We can do this within ``TaskItem``.
         task, deleteTask, completeTask,
         isEditing, toBeEdited, updateTask
     }: Props) => {
-        const [ bodyText, setBodyText ] = useState('');
+        const [ bodyText, setBodyText ] = useState(task.body);
 
         const saveBody = () => {
             updateTask(task, bodyText);
@@ -2742,7 +2744,7 @@ We need this to be called when the ``"Save"`` button is clicked, so let's pass t
         task, deleteTask, completeTask,
         isEditing, toBeEdited, updateTask
     }: Props) => {
-        const [ bodyText, setBodyText ] = useState('');
+        const [ bodyText, setBodyText ] = useState(task.body);
 
         const saveBody = () => {
             updateTask(task, bodyText);
@@ -2820,3 +2822,508 @@ Then commit, merge, and let's talk about adding CSS.
     [update-task] $ git commit -m 'Updated the TaskBody to include the saveBody functionality.'
     [update-task] $ git checkout master
     [master] $ git merge update-task -m 'Tasks can now be updated from the client side by clicking the "Save" button on an edited task.'
+
+Adding Quick Style with React Bootstrap
+---------------------------------------
+
+So we have a fully-functioning application, and that's great.
+But, and let's be honest here, raw HTML with default browser styles looks terrible.
+Let's spruce it up a bit with some built-in style from React Bootstrap.
+
+Note: this whole section is focused specifically on updating the React application to incorporate React Bootstrap components and styling.
+If that's not your cup of tea, feel free to skip ahead to the next section where we discuss deployment.
+
+React BootStrap [#f4]_ is a rebuild of Bootstrap [#f5]_, one of the most widely-used front-end libraries available, with specific React components.
+This involves not just quick-built structure, but out-of-the-box styling that makes it quick job to add some flavor to a web application.
+It also doesn't preclude us from adding our own styles, which we'll see in a bit.
+
+Let's get it going and install it with ``npm install``.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b styling
+    [styling] $ npm install react-bootstrap@1.0.0-beta.6 bootstrap@4.3.1 jquery@3.4.1
+
+As of this writing I'm using ``react-bootstrap`` v1.0.0-beta.6.
+This requires an install of ``bootstrap``, and I'm using version 4.3.1.
+``bootstrap`` itself requires ``jquery`` as a peer dependency, so I've also installed that at v3.4.1.
+
+Before we change anything with our app's components, we need to include the Bootstrap stylesheet in our ``index.html``.
+This is literally the only time we'll touch ``index.html`` throughout the entire development of this app.
+
+.. code-block:: html
+
+    <!-- in the <head> tag of public/index.html -->
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+      crossorigin="anonymous"
+    />
+
+Without the above, we'd be missing out on the bootstrap styles we'll be leveraging.
+
+Whenever I'm taking on a new task, I like to start with the most obvious thing.
+In this, let's start with adding style to the list of task items, since that's the heart of our application.
+``react-bootstrap`` offers tons of components for use, and an appropriate one to use for the task items is the Card [#f6]_.
+It's a nice little self-contained unit for encapsulating content.
+
+Each task item should be a ``Card`` component, with the text of the task item sitting within a ``Card.Text`` component, itself comfortably within a ``Card.Body`` component.
+The control buttons (``"Complete"``, ``"Edit"``, ``"Delete"``, and ``"Save"``) will sit within a ``Card.Header`` component.
+Let's also add a ``className`` of ``"task-item"`` to each Card, as it'll help our CSS down the line.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    // at the top
+    import Card from 'react-bootstrap/Card';
+
+    // within the TaskItem component's return statement
+    return <Card className="task-item">
+        <Card.Header>
+            <TaskButtons {...buttonProps} />
+        </Card.Header>
+        <Card.Body>
+            <Card.Text>
+                <TaskBody {...bodyProps} />
+            </Card.Text>
+        </Card.Body>
+    </Card>;
+
+Let's commit these changes, then think more about layout.
+
+.. code-block:: shell
+
+    [styling] $ git add public/index.html src/components/TaskItem.tsx
+    [styling] $ git commit -m 'Added the bootstrap stylesheet to index.html and replaced the generic divs containing each task item with Cards from bootstrap'
+
+If we look at the change in the browser, we'll see our cards listed from top to bottom.
+However, we'll also see that their width goes across the entire width of the window.
+I don't know about you, but the task lists I'm used to are more narrow, taking up much less of the screen.
+Unfortunately, all the options for modifying the layout of bootstrap cards assume you want the cards to lay side-by-side.
+This isn't a big deal though; we can use more generic layout rules from Bootstrap's grid system [#f7]_ to have more of a narrow listing.
+
+Bootstrap's grid system uses a series of ``Container``, ``Row``, and ``Col`` objects to create a predictable, reusable layout.
+A ``Container`` surrounds all the content.
+A ``Row`` sits within a ``Container``, and by default consumes its ``Container``'s full width.
+Each ``Col`` sits within a ``Row``, and if we put ``Col`` components side-by-side their width will be automatically calculated to be evenly-divided across the full width of the ``Row``.
+We can nest ``Containers`` within ``Cols`` starting a new hierarchy if we want.
+
+There's a number of ways we could approach this.
+What we'll do here for simplicity is surround the entire app within a ``Container`` and ``Row``.
+We'll cut the ``Row`` into 3 ``Cols``, putting our app's entire content within the middle ``Col`` and leaving the other two columns empty.
+That'll ensure that our content is always centered.
+
+.. code-block:: javascript
+
+    // in App.tsx
+    // at the top
+    import React, { FunctionComponent, useState, useEffect } from 'react';
+    import axios from 'axios';
+    import Container from 'react-bootstrap/Container';
+    import Row from 'react-bootstrap/Row';
+    import Col from 'react-bootstrap/Col';
+
+    // in the App component's return statement
+    return (
+        <Container className="App">
+            <Row>
+                <Col></Col>
+                <Col>
+                    <CreateTask submitTask={submitTask} />
+                    <TaskList {...taskListProps} />
+                </Col>
+                <Col></Col>
+            </Row>
+        </Container>
+    );
+
+We might ask ourselves "why are we importing all these components individually instead of doing one grand import of each component from the base of ``react-bootstrap``?"
+The ``react-bootstrap`` library is massive, and we don't always need everything from it.
+By importing the individual components from their homes, we guarantee that when we build the project for production we only incorporate the code we need from ``react-bootstrap``, instead of the entire library.
+
+Let's commit the change, then continue.
+
+.. code-block:: shell
+
+    [styling] $ git add src/App.tsx
+    [styling] $ git commit -m 'Added some grid layout to App.tsx to center content in the middle of the page.'
+
+The ``Cards`` themselves could use some vertical spacing, as well as some aligning of the buttons and the text content.
+Let's right-justify the buttons and left-justify the text content of each ``Card``.
+Let's also add, say, ``20px`` of space between each ``Card`` and ``2.5px`` of space between each button.
+
+.. code-block:: shell
+
+    [styling] $ touch src/components/TaskItem.css
+
+Let's add our style rules.
+
+.. code-block:: css
+
+    /* in components/TaskItem.css */
+    .task-item {
+        margin: 10px 0;
+        text-align: left;
+    }
+    .task-item .task-buttons {
+        display: flex;
+        justify-content: flex-end;
+    }
+    .task-buttons button {
+        margin: 0 2.5px;
+    }
+
+To add CSS from a stylesheet to a component, we can create the stylesheet then import it into the component.
+It's convention to name the stylesheet after the component it modifies.
+Note that this won't result in a thousand stylesheets when the project is built and deployed.
+All the stylesheets will be compiled into one.
+It is, however, useful for development to co-locate and appropriately-name a stylesheet when it applies to one individual piece of the application.
+We can still add global styles if we wish in the ``App.css`` or ``index.css`` files.
+
+.. code-block:: javascript
+
+    // in components/TaskItem.tsx
+    // after all the imports
+    import './TaskItem.css';
+
+Let's commit, then work on that ``textarea`` and ``Add Task`` button.
+
+.. code-block:: shell
+
+    [styling] $ git add src/components/TaskItem.{tsx,css}
+    [styling] $ git commit -m 'Added styles to space out task items, and justify buttons & task body content'
+
+Right now the actual task submission area, though functional, looks janky.
+Let's first drop in Bootstrap components for the ``textarea`` and ``Add Task`` button.
+
+For all form elements, React Bootstrap provides the ``Form`` component.
+This is what will get used for all form controls, form labels, form groupings--everything.
+
+We surround all our form elements with ``<Form>`` to start, which will take the same props we passed to ``<form>`` earlier.
+Note the difference in capitalization; this is significant.
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    // at the top
+    import Form from 'react-bootstrap/Form';
+
+    // in the return statement of CreateTask.tsx
+    return <Form onSubmit={handleSubmission}>
+        <textarea
+            placeholder="What do you want to do?"
+            value={taskBody}
+            onChange={ (event: ChangeEvent<HTMLFormElement>) => setBody(event.target.value) }
+        />
+        <button type="submit">Add Task</button>
+    </Form>;
+
+For ``textarea``s we have ``Form.Control``.
+``Form.Control`` becomes a variety of input field types using the ``as`` prop, so ``<Form.Control as="textarea">`` becomes our new bootstrapped ``textarea``.
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    // at the top
+    import Form from 'react-bootstrap/Form';
+
+    // in the return statement of CreateTask.tsx
+    return <Form onSubmit={ handleSubmission }>
+        <Form.Control as="textarea"
+            placeholder="What do you want to do?"
+            value={ taskBody }
+            onChange={ (event: ChangeEvent<HTMLFormElement>) => setBody(event.target.value) }
+        />
+        <button type="submit">Add Task</button>
+    </Form>;
+
+The ``button`` can also be replaced with a Bootstrap button (we'll do this with all the buttons moving forward).
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    // at the top
+    import Form from 'react-bootstrap/Form';
+    import Button from 'react-bootstrap/Button';
+
+    // in the return statement of CreateTask.tsx
+    return <Form onSubmit={ handleSubmission }>
+        <Form.Control as="textarea"
+            placeholder="What do you want to do?"
+            value={ taskBody }
+            onChange={ (event: ChangeEvent<HTMLFormElement>) => setBody(event.target.value) }
+        />
+        <Button type="submit">Add Task</Button>
+    </Form>;
+
+And it's blue now!
+
+To bring the widths of the ``textarea`` in line, as well as to help make the button stylable with flexbox, we can impose bootstrap grid rules again.
+``<Form>`` on its own serves as the ``Container`` we used before.
+To bring in a row, we can use ``<Form.Row>``.
+To use columns, we can use ``<Form.Group as { Col }>``.
+Now our code for ``CreateTask.tsx`` should look like this:
+
+.. code-block:: javascript
+
+    // in components/CreateTask.tsx
+    // at the top
+    import Form from 'react-bootstrap/Form';
+    import Button from 'react-bootstrap/Button';
+    import Col from 'react-bootstrap/Col';
+
+    return <Form onSubmit={ handleSubmission }>
+        <Form.Row>
+            <Form.Group as={ Col }>
+                <Form.Control as="textarea"
+                    placeholder="What do you want to do?"
+                    value={ taskBody }
+                    onChange={ (event: ChangeEvent<HTMLFormElement>) => setBody(event.target.value) }
+                />
+            </Form.Group>
+        </Form.Row>
+        <Form.Row>
+            <Form.Group as={ Col }>
+                <Button type="submit">Add Task</Button>
+            </Form.Group>
+        </Form.Row>
+    </Form>;
+
+That's good for now.
+Let's commit then style some buttons.
+
+.. code-block:: shell
+
+    [styling] $ git add src/components/CreateTask.tsx
+    [styling] $ git commit -m 'Fixed up the textarea and submission button with bootstrap components'
+
+As we've seen with the ``CreateTask`` component, Bootstrap offers buttons for use.
+That's great!
+We'll be able to toss those in for our ``"Edit"``, ``"Complete"``, ``"Delete"``, and ``"Save"`` buttons, along with built-in colors.
+Before we get to that, though, I'd like to make a stylistic change.
+
+Let's exchange words for icons on these buttons.
+Instead of "Complete", let's use a check mark.
+Let's use a big trashcan instead of "Delete", a pencil for "Edit", and an old-timey 3.5-inch floppy icon for "Save".
+
+A nice library that I've always used for icons is [#f8]_ Font Awesome.
+Let's install it and its dependencies:
+
+.. code-block:: shell
+    
+    [styling] $ npm install @fortawesome/react-fontawesome@0.1.4 @fortawesome/free-solid-svg-icons@5.8.1 @fortawesome/fontawesome-svg-core@1.2.17
+
+In ``TaskButtons`` we want to drop in the Bootstrap button, but also our Font Awesome icons.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    // at the top
+    import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+    import { 
+        faSave, faPencilAlt, 
+        faCheck, faTrash
+    } from '@fortawesome/free-solid-svg-icons';
+    import Button from 'react-bootstrap/Button';
+
+    // in the return statement
+    return <div className="task-buttons">
+        {
+            isEditing === task._id ?
+                <Button onClick={() => saveBody()}>
+                    <FontAwesomeIcon icon={ faSave } />
+                </Button> :
+                <Button onClick={() => toBeEdited(task._id)}>
+                    <FontAwesomeIcon icon={ faPencilAlt } />
+                </Button>
+        }
+        <Button onClick={() => completeTask(task)}>
+            <FontAwesomeIcon icon={ faCheck } />
+        </Button>
+        <Button onClick={() => deleteTask(task._id)}>
+            <FontAwesomeIcon icon={ faTrash } />
+        </Button>
+    </div>;
+
+While we're fixing up buttons, let's add some better coloring.
+React-bootstrap has colors available for its buttons, specified by a button's "variant".
+Let's add some variants.
+
+.. code-block:: javascript
+
+    // in components/TaskButtons.tsx
+    // in the return statement
+    return <div className="task-buttons">
+        {
+            isEditing === task._id ?
+                <Button variant="warning" onClick={() => saveBody()}>
+                    <FontAwesomeIcon icon={ faSave } />
+                </Button> :
+                <Button variant="warning" onClick={() => toBeEdited(task._id)}>
+                    <FontAwesomeIcon icon={ faPencilAlt } />
+                </Button>
+        }
+        <Button variant="success" onClick={() => completeTask(task)}>
+            <FontAwesomeIcon icon={ faCheck } />
+        </Button>
+        <Button variant="danger" onClick={() => deleteTask(task._id)}>
+            <FontAwesomeIcon icon={ faTrash } />
+        </Button>
+    </div>;
+
+We're almost there!
+Let's commit, then address the ``textarea`` that pops up on edit.
+
+.. code-block:: shell
+
+    [styling] $ git add src/components/TaskButtons.tsx
+    [styling] $ git commit -m 'Switched the task buttons out for icons'
+
+This one should be pretty straightforward: swap the bare ``textarea`` out for one produced by Bootstrap.
+
+.. code-block:: javascript
+
+    // in components/TaskBody.tsx
+    // at the top
+    import Form from 'react-bootstrap/Form';
+
+    // in the return statement
+    return isEditing === task._id ?
+        <Form.Control
+            as="textarea"
+            value={bodyText}
+            onChange={updateText}
+        />:
+        <div className="task-body">{task.body}</div>;
+
+Let's commit, merge, and that's it!
+We've built a To Do list from the ground-up!
+Time to deploy.
+
+.. code-block:: shell
+
+    [styling] $ git add src/components/TaskBody.tsx
+    [styling] $ git commit -m 'Updated the TaskBody component to use a bootstrap textarea as opposed to a regular one.'
+    [styling] $ git checkout master
+    [master] $ git merge styling -m 'Added bootstrap and some CSS to make the site look better'
+
+Deploying a Server and Client to Heroku
+---------------------------------------
+
+Our application works end-to-end.
+Congrats!
+Let's make it really real and put it up live on the internet.
+
+There's a wide variety of platforms that we can use to deploy an application, and we'll cover several of them over the course of this book.
+The first of these will be Heroku [#f9]_.
+
+Heroku is a platform for deploying web applications quickly with minimal manual configuration and easy scalability.
+It works based on ``bash`` and ``git``, where we'll push our repository to their platform and they'll run our code as we dictate through a set of configuration/procedural files (depending on the language).
+It also makes available a variety of useful add-ons [#f11]_ for tools including (but definitely not limited to) databases, message queues, email, and search.
+
+I won't go through the account creation flow, as there's docs for that.
+I will note that every app that we build with Heroku and any add-ons we include will be at a Free tier.
+You can upgrade if you see fit. 
+
+Let's start with what you can do once your account is made.
+Download and install the Heroku Command Line Interface [#f10]_ (v7.24.3 as of this writing) to your computer.
+This will allow us to use Heroku tools without having to work through the web interface.
+
+Once the Heroku CLI is installed on your machine, you should be able to log in with whatever account you created through their web portal.
+This can be done in any terminal on your machine.
+You'll stay logged in until you decide to log out.
+
+.. code-block:: shell
+
+    $ heroku login -i
+
+The ``-i`` flag here ensures that we can enter our credentials on the command line.
+Without it, we'd be taken to the browser.
+Either way works.
+
+Once we're logged in, we can create our first Heroku app.
+Our location within our filesystem will matter here.
+Let's navigate to the repository root for our Flask server so we can get that app up and online.
+Then, we'll create our Heroku app.
+
+.. code-block:: shell
+
+    (ENV) [master] $ git checkout -b deploy
+    (ENV) [deploy] $ heroku create
+    Creating app... done, ⬢ immense-springs-13404
+    https://immense-springs-13404.herokuapp.com/ | https://git.heroku.com/immense-springs-13404.git
+
+When we create a Heroku app, Heroku will spin up a server for us to deploy something to.
+It'll assign a random name like above (unless we provide a name after ``heroku create``), and return to us both the URL for the app that we can visit and the URL for the repository that we can push to.
+Note that for the site URL, it'll always be ``https://<name of the app>.herokuapp.com``, and the git repo will be ``https://git.heroku.com/<name of the app>.git``.
+It'll also automatically add the remote Heroku repository to our set of remote repositories under the name ``heroku``.
+If for whatever reason it doesn't do that, we can always add it ourselves.
+
+If our Flask app was completely ready for deployment, we'd be able to just push whatever exists on the master branch with ``git push heroku master``.
+However it's not quite there.
+First, we have to do a quick substitution within ``app.py``.
+
+Currently, we locate the MongoDB database instance to use by pointing at localhost port ``27017``.
+Within our Heroku app, no such Mongo instance exists.
+Instead, we need to provision Heroku's MongoDB add-on and include that address within our codebase.
+
+.. code-block:: shell
+
+    (ENV) [deploy] $ heroku addons:create mongolab:sandbox
+    Creating mongolab:sandbox on ⬢ immense-springs-13404... free
+    Welcome to mLab.  Your new subscription is being created and will be available shortly.  Please consult the mLab Add-on Admin UI to check on its progress.
+    Created mongolab-concave-60789 as MONGODB_URI
+    Use heroku addons:docs mongolab to view documentation
+
+Now we've added MongoDB to our Heroku app.
+Great!
+How do we locate it?
+
+When we provisioned the add-on, Heroku told us ``Created mongolab-concave-60789 as MONGODB_URI``.
+This means to us that it created the MongoDB instance and set the URL to that instance as the environment variable ``MONGODB_URI``.
+What this means for us is that we don't necessarily *need* to know exactly what the URI for our Mongo instance is, as long as we know how to find the URI.
+It also means that we no longer have to hard-code the URI into our server's codebase, as we can access environment variables in Python with ``os.environ.get``.
+
+Within ``app.py``, let's replace our hardcoded Mongo URI with one from our environment, setting the ``localhost`` location as the default value if the proper environment variable doesn't exist.
+
+.. code-block:: python
+
+    # in app.py
+    # at the top
+    import os
+
+    # after the imports 
+    app = FlaskAPI(__name__)
+    app.config["MONGO_URI"] = os.environ.get(
+        'MONGODB_URI',
+        'mongodb://localhost:27017/tasksdb'
+    )
+
+Great!
+Let's commit this change, then move onto the next bit about deployment.
+
+.. code-block:: shell
+
+    (ENV) [deploy] $ git add app.py
+    (ENV) [deploy] $ git commit -m 'Updated the MONGO_URI line with a call to an environment variable if one exists.'
+
+When we're running in the cloud, we won't be using ``flask run``.
+Instead we'll be using GUnicorn [#f12]_ a Python-based webserver.
+Let's ``pip`` install this Python package, and add it to our ``requirements.txt``.
+
+.. code-block:: shell
+
+    (ENV) [deploy] $ pip install gunicorn==19.9.0
+    (ENV) [deploy] $ echo 'gunicorn==19.9.0' >> requirements.txt
+
+When we run ``gunicorn``, it'll start a webserver that'll look for a Python WSGI app, such as the Flask app we've created.
+It'll run on port 8000 by default, though we could change that port if we so chose.
+Let's fire up ``gunicorn`` and visit ``localhost:8000/api/v1/tasks`` to verify that it works.
+
+.. code-block:: shell
+
+    (ENV) [deploy] $ gunicorn app:app
+
+The syntax here is ``gunicorn <name of python file containing app>:<name of object in file that is the app>``.
+
