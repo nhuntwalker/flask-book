@@ -204,7 +204,11 @@ At the top-level we have:
 - ``public``: contains the base ``index.html`` file that our React app hooks into, as well as the ``manifest.json`` which provides information about your application for mobile devices if a mobile user wants to install a shortcut to your web app on their phone. Generally, we'll only touch this directory if we need to change something within the ``<head>`` tag of the ``index.html`` file.
 - ``src``: the meat of the application. Where all the JS and CSS is housed
 - ``tsconfig.json``: the indicator that this codebase is written in TypeScript. This file dictates what is required to compile this codebase to JavaScript.
-- ``yarn.lock``: a file storing the exact versions of packages that have been installed. If we were using ``yarn`` instead of ``npm`` to manage our packages, this file would update automatically as we installed more packages. However, we're using ``npm``, so a similar ``package-lock.json`` will be used.
+- ``yarn.lock``: a file storing the exact versions of packages that have been installed. If we were using ``yarn`` instead of ``npm`` to manage our packages, this file would update automatically as we installed more packages. However, we're using ``npm``, so a similar ``package-lock.json`` will be used. We need to delete this file to prevent it from messing up our deployment later on.
+
+.. code-block:: shell
+
+    $ rm yarn.lock
 
 Within the ``src`` directory, we have 
 
@@ -3208,8 +3212,8 @@ Time to deploy.
     [styling] $ git checkout master
     [master] $ git merge styling -m 'Added bootstrap and some CSS to make the site look better'
 
-Deploying a Server and Client to Heroku
----------------------------------------
+Deploying the Server to Heroku
+------------------------------
 
 Our application works end-to-end.
 Congrats!
@@ -3250,7 +3254,7 @@ Then, we'll create our Heroku app.
 .. code-block:: shell
 
     (ENV) [master] $ git checkout -b deploy
-    (ENV) [deploy] $ heroku create
+    (ENV) [deploy-server] $ heroku create
     Creating app... done, ⬢ immense-springs-13404
     https://immense-springs-13404.herokuapp.com/ | https://git.heroku.com/immense-springs-13404.git
 
@@ -3270,7 +3274,7 @@ Instead, we need to provision Heroku's MongoDB add-on and include that address w
 
 .. code-block:: shell
 
-    (ENV) [deploy] $ heroku addons:create mongolab:sandbox
+    (ENV) [deploy-server] $ heroku addons:create mongolab:sandbox
     Creating mongolab:sandbox on ⬢ immense-springs-13404... free
     Welcome to mLab.  Your new subscription is being created and will be available shortly.  Please consult the mLab Add-on Admin UI to check on its progress.
     Created mongolab-concave-60789 as MONGODB_URI
@@ -3305,8 +3309,8 @@ Let's commit this change, then move onto the next bit about deployment.
 
 .. code-block:: shell
 
-    (ENV) [deploy] $ git add app.py
-    (ENV) [deploy] $ git commit -m 'Updated the MONGO_URI line with a call to an environment variable if one exists.'
+    (ENV) [deploy-server] $ git add app.py
+    (ENV) [deploy-server] $ git commit -m 'Updated the MONGO_URI line with a call to an environment variable if one exists.'
 
 When we're running in the cloud, we won't be using ``flask run``.
 Instead we'll be using GUnicorn [#f12]_ a Python-based webserver.
@@ -3314,8 +3318,8 @@ Let's ``pip`` install this Python package, and add it to our ``requirements.txt`
 
 .. code-block:: shell
 
-    (ENV) [deploy] $ pip install gunicorn==19.9.0
-    (ENV) [deploy] $ echo 'gunicorn==19.9.0' >> requirements.txt
+    (ENV) [deploy-server] $ pip install gunicorn==19.9.0
+    (ENV) [deploy-server] $ echo 'gunicorn==19.9.0' >> requirements.txt
 
 When we run ``gunicorn``, it'll start a webserver that'll look for a Python WSGI app, such as the Flask app we've created.
 It'll run on port 8000 by default, though we could change that port if we so chose.
@@ -3323,7 +3327,105 @@ Let's fire up ``gunicorn`` and visit ``localhost:8000/api/v1/tasks`` to verify t
 
 .. code-block:: shell
 
-    (ENV) [deploy] $ gunicorn app:app
+    (ENV) [deploy-server] $ gunicorn app:app
 
 The syntax here is ``gunicorn <name of python file containing app>:<name of object in file that is the app>``.
 
+Once we've verified that we can see our application, let's have Heroku do the same thing.
+We tell Heroku what to do with a ``Procfile`` within the root of our repository.
+It's a simple text file that dictates to Heroku what commands to run.
+For example, if we want to start a web app using bash command ``gunicorn app:app``, we do the following:
+
+.. code-block:: shell
+
+    (ENV) [deploy-server] $ echo 'web: gunicorn app:app' > Procfile
+    (ENV) [deploy-server] $ git add Procfile
+    (ENV) [deploy-server] $ git commit -m 'Added the Procfile for Heroku to run gunicorn'
+
+Here we're saying "Heroku, start a web worker, and have it run gunicorn looking for an 'app' object in 'app.py'".
+With this written and committed, we're ready to merge and push our server to Heroku.
+
+.. code-block:: shell
+
+    (ENV) [deploy-server] $ git checkout master
+    (ENV) [master] $ git merge deploy-server -m 'Set up deployment to Heroku'
+    (ENV) [master] $ git push heroku master
+
+When we push to Heroku, it'll detect our ``requirements.txt`` and know that we're running a Python application.
+It'll install every package within ``requirements.txt`` if it is able, then it'll run the ``Procfile``.
+If all goes well, at the end of Heroku's logging we should see the following:
+
+.. code-block:: shell
+
+    remote: -----> Discovering process types
+    remote:        Procfile declares types -> web
+    remote: 
+    remote: -----> Compressing...
+    remote:        Done: 45.7M
+    remote: -----> Launching...
+    remote:        Released v5
+    remote:        https://immense-springs-13404.herokuapp.com/ deployed to Heroku
+    remote: 
+    remote: Verifying deploy... done.
+    To https://git.heroku.com/immense-springs-13404.git
+     * [new branch]      master -> master
+
+We can visit the newly-deployed backend by either using the link from the log, or executing ``heroku open`` in the Terminal.
+Remember, our server doesn't have an endpoint for the ``"/"`` route!
+Start at ``"/api/v1/tasks"``.
+
+Deploying the Client to Heroku
+------------------------------
+
+Now that the server is up and running, let's connect the client.
+We'll need to create the Heroku app, make sure we can point the React application at the proper server URL, and then deploy.
+Let's start by creating the Heroku app.
+
+.. code-block:: shell
+
+    [master] $ git checkout -b deploy-client
+    [deploy-client] $ heroku create
+    Creating app... done, ⬢ safe-wave-42434
+    https://safe-wave-42434.herokuapp.com/ | https://git.heroku.com/safe-wave-42434.git
+
+The React application itself points to localhost as the location of the server.
+That's not where the server lives anymore, and I'm not entirely comfortable hardcoding our server's URL within the codebase as that can change at a moment's notice.
+Let's resort to using environment variables again.
+
+.. code-block:: javascript
+
+    // in App.tsx
+    const API_HOST = `${ process.env.REACT_APP_API_HOST || "http://localhost:5000" }/api/v1`;
+
+Similar to what we did with the server, we retrieve the ``REACT_APP_API_HOST`` environment variable and set that as the basis for our server calls.
+If that environment variable doesn't exist, we fall back to localhost.
+Note that the environment variable MUST be prefixed with ``REACT_APP`` in order for it to be included at runtime, which is why this is ``REACT_APP_API_HOST`` and not just ``API_HOST``.
+
+Commit this change, merge, and we'll move to the next step.
+
+.. code-block:: shell
+
+    [deploy-client] $ git add src/components/App.tsx
+    [deploy-client] $ git commit -m 'Made the REACT_APP_API_HOST constant dependent on environment'
+    [deploy-client] $ git checkout master
+    [master] $ git merge deploy-client -m 'Updated the REACT_APP_API_HOST to be environment dependent, preparing for Heroku deploy'
+
+Now that we'll be expecting this ``REACT_APP_API_HOST`` environment variable, we have to set it on Heroku.
+We know the URL of our server from the previous section.
+In my individual case it's ``https://immense-springs-13404.herokuapp.com``.
+I can set this as the ``REACT_APP_API_HOST`` environment variable on my Heroku server using the Heroku CLI.
+
+.. code-block:: shell
+
+    [master] $ heroku config:set REACT_APP_API_HOST='https://immense-springs-13404.herokuapp.com'
+
+When this environment variable is set, Heroku restarts the app.
+Now we're ready for our client deployment!
+
+.. code-block:: shell
+
+    [master] $ git push heroku master
+
+That's deployment!
+Congratulations on deploying your first app!
+We've got many more to go, let's see what comes next.
