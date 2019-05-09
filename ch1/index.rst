@@ -2,16 +2,15 @@
 Chapter 1 - Configuring Your Full Stack Flask Environment
 *********************************************************
 
-.. important::
+**Objectives**
 
-    - Set the stage for conventions within the book (e.g. type annotations, doc strings)
-    - Understand what Flask is and how it compares to other Python web frameworks
-    - Set up a Python 3.7 environment
-    - Set up a Git repository
-    - Download and install Flask
-    - Say "Hello World!" with Flask
-    - Serve an HTML page
-    - Have Flask talk to a ReactJS front-end via HTTP requests and responses
+- Understand what Flask is and how it compares to other Python web frameworks
+- Set up a Python 3.7 environment
+- Set up a Git repository
+- Download and install Flask
+- Say "Hello World!" with Flask
+- Serve an HTML page
+- Have Flask talk to a ReactJS front-end via HTTP requests and responses
 
 .. include:: ./introduction.rst
 .. include:: ./installation.rst
@@ -21,6 +20,7 @@ Chapter 1 - Configuring Your Full Stack Flask Environment
 
 .. rubric:: Footnotes
 
+.. [#f0] `Flask homepage <http://flask.pocoo.org/>`_
 .. [#f1] `https://brew.sh/ <https://brew.sh/>`_
 .. [#f2] `Support for Type Hints <https://docs.python.org/3/library/typing.html>`_
 .. [#f3] `Python strftime reference. <http://strftime.org/>`_
